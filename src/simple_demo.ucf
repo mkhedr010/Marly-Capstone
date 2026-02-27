@@ -28,11 +28,19 @@ NET "uart_rx" LOC = "R7" | IOSTANDARD = LVCMOS33;
 # LED[1]: UART active (on when receiving data)
 # LED[2]: Error (blinks if UART error)
 # LED[3]: Heartbeat (system alive indicator)
+#
+# Common Spartan-3E LED locations (try these first):
 ################################################################################
-NET "led<0>" LOC = "J12" | IOSTANDARD = LVCMOS33;
-NET "led<1>" LOC = "K12" | IOSTANDARD = LVCMOS33;
-NET "led<2>" LOC = "L12" | IOSTANDARD = LVCMOS33;
-NET "led<3>" LOC = "M12" | IOSTANDARD = LVCMOS33;
+NET "led<0>" LOC = "F12" | IOSTANDARD = LVCMOS33;
+NET "led<1>" LOC = "E12" | IOSTANDARD = LVCMOS33;
+NET "led<2>" LOC = "E11" | IOSTANDARD = LVCMOS33;
+NET "led<3>" LOC = "F11" | IOSTANDARD = LVCMOS33;
+
+# Alternative LED locations (if above don't work, try uncommenting these):
+# NET "led<0>" LOC = "D14" | IOSTANDARD = LVCMOS33;
+# NET "led<1>" LOC = "E12" | IOSTANDARD = LVCMOS33;
+# NET "led<2>" LOC = "F12" | IOSTANDARD = LVCMOS33;
+# NET "led<3>" LOC = "G12" | IOSTANDARD = LVCMOS33;
 
 ################################################################################
 # Notes
