@@ -1,0 +1,43 @@
+################################################################################
+# Pin Constraints for Simple UART Demo
+# Target: Xilinx Spartan-3E Starter Board (XC3S500E-FG320)
+#
+# Minimal configuration for UART streaming demo with LED indicators
+#
+# Author: Marly
+# Date: February 26, 2026
+################################################################################
+
+# Clock and Reset
+NET "clk_50mhz" LOC = "C9" | IOSTANDARD = LVCMOS33;
+NET "clk_50mhz" TNM_NET = clk_50mhz;
+TIMESPEC TS_clk_50mhz = PERIOD "clk_50mhz" 20 ns HIGH 50%;
+
+NET "reset_n" LOC = "B18" | IOSTANDARD = LVCMOS33 | PULLUP;
+
+################################################################################
+# UART Interface
+# NOTE: Verify UART_RX pin location for your specific board!
+#       Common locations: R7, T13, U8 depending on board variant
+################################################################################
+NET "uart_rx" LOC = "R7" | IOSTANDARD = LVCMOS33;
+
+################################################################################
+# LEDs (4 LEDs for status indication)
+# LED[0]: Data toggle (blinks on each received sample)
+# LED[1]: UART active (on when receiving data)
+# LED[2]: Error (blinks if UART error)
+# LED[3]: Heartbeat (system alive indicator)
+################################################################################
+NET "led<0>" LOC = "J12" | IOSTANDARD = LVCMOS33;
+NET "led<1>" LOC = "K12" | IOSTANDARD = LVCMOS33;
+NET "led<2>" LOC = "L12" | IOSTANDARD = LVCMOS33;
+NET "led<3>" LOC = "M12" | IOSTANDARD = LVCMOS33;
+
+################################################################################
+# Notes
+################################################################################
+# 1. This is a simplified UCF for demo purposes
+# 2. UART_RX pin (R7) must match your board - check schematic!
+# 3. For full system, use spartan3e.ucf instead
+# 4. LED locations are standard for Spartan-3E Starter Kit

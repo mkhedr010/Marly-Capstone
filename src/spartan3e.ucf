@@ -1,0 +1,86 @@
+################################################################################
+# Pin Constraints for ECG Simulation System
+# Target: Xilinx Spartan-3E Starter Board (XC3S500E-FG320)
+#
+# IMPORTANT: Verify pin locations with your specific board manual!
+#           These are generic Spartan-3E Starter Kit pins
+#
+# Author: Marly
+# Date: January 21, 2026
+################################################################################
+
+# Clock and Reset
+NET "clk_50mhz" LOC = "C9" | IOSTANDARD = LVCMOS33;
+NET "clk_50mhz" TNM_NET = clk_50mhz;
+TIMESPEC TS_clk_50mhz = PERIOD "clk_50mhz" 20 ns HIGH 50%;
+
+NET "reset_n" LOC = "B18" | IOSTANDARD = LVCMOS33 | PULLUP;
+
+################################################################################
+# UART Interface
+# NOTE: Verify UART_RX pin location for your specific board!
+#       Common locations: R7, T13, U8 depending on board variant
+################################################################################
+NET "uart_rx" LOC = "R7" | IOSTANDARD = LVCMOS33;
+
+################################################################################
+# VGA Output
+# Standard VGA connector pins for Spartan-3E
+################################################################################
+NET "vga_hsync" LOC = "J14" | IOSTANDARD = LVCMOS33;
+NET "vga_vsync" LOC = "K13" | IOSTANDARD = LVCMOS33;
+
+# VGA Red (3 bits)
+NET "vga_r<0>" LOC = "F13" | IOSTANDARD = LVCMOS33;
+NET "vga_r<1>" LOC = "D13" | IOSTANDARD = LVCMOS33;
+NET "vga_r<2>" LOC = "C14" | IOSTANDARD = LVCMOS33;
+
+# VGA Green (3 bits)
+NET "vga_g<0>" LOC = "G14" | IOSTANDARD = LVCMOS33;
+NET "vga_g<1>" LOC = "G13" | IOSTANDARD = LVCMOS33;
+NET "vga_g<2>" LOC = "F14" | IOSTANDARD = LVCMOS33;
+
+# VGA Blue (2 bits)
+NET "vga_b<0>" LOC = "J13" | IOSTANDARD = LVCMOS33;
+NET "vga_b<1>" LOC = "H13" | IOSTANDARD = LVCMOS33;
+
+################################################################################
+# User Interface
+################################################################################
+# Button (typically active low)
+NET "btn<0>" LOC = "H13" | IOSTANDARD = LVCMOS33 | PULLDOWN;
+
+# LEDs
+NET "led<0>" LOC = "J12" | IOSTANDARD = LVCMOS33;
+NET "led<1>" LOC = "K12" | IOSTANDARD = LVCMOS33;
+NET "led<2>" LOC = "L12" | IOSTANDARD = LVCMOS33;
+NET "led<3>" LOC = "M12" | IOSTANDARD = LVCMOS33;
+
+################################################################################
+# CNN Interface (Internal Signals - No Physical Pins)
+# These signals connect internally to Ayoub's CNN module
+# They do NOT need LOC constraints
+################################################################################
+# cnn_sample[11:0]    - Internal signal
+# cnn_valid           - Internal signal
+# cnn_result[1:0]     - Internal signal (from CNN)
+# cnn_result_valid    - Internal signal (from CNN)
+
+################################################################################
+# Timing Constraints
+################################################################################
+
+# VGA pixel clock (derived from clk_50mhz via clk_divider)
+NET "clk_25mhz" TNM_NET = clk_25mhz;
+TIMESPEC TS_clk_25mhz = PERIOD "clk_25mhz" 40 ns HIGH 50%;
+
+# Clock domain crossing constraints (if needed)
+# UART to VGA buffer crossing is handled by dual-port RAM
+
+################################################################################
+# Notes
+################################################################################
+# 1. Verify UART_RX pin with board schematic
+# 2. Check VGA RGB bit order (may vary by board)
+# 3. CNN signals are internal - no LOC needed
+# 4. Add sw[1:0] pins if you want waveform selection later
