@@ -1,0 +1,24 @@
+-- conv1_bias
+-- Original shape: (16,)
+DEPTH = 16;
+WIDTH = 16;
+ADDRESS_RADIX = HEX;
+DATA_RADIX = HEX;
+CONTENT BEGIN
+  0000 : 0011;
+  0001 : 0031;
+  0002 : 0021;
+  0003 : FFFD;
+  0004 : FFF3;
+  0005 : FFC4;
+  0006 : 0020;
+  0007 : FFDC;
+  0008 : FFDC;
+  0009 : FFE3;
+  000A : FFF6;
+  000B : 0022;
+  000C : FFDF;
+  000D : 000A;
+  000E : FFD5;
+  000F : FFEE;
+END;

@@ -1,0 +1,24 @@
+-- linear1_bias
+-- Original shape: (16,)
+DEPTH = 16;
+WIDTH = 16;
+ADDRESS_RADIX = HEX;
+DATA_RADIX = HEX;
+CONTENT BEGIN
+  0000 : FFEF;
+  0001 : 0002;
+  0002 : FFF8;
+  0003 : 0016;
+  0004 : 001A;
+  0005 : 0014;
+  0006 : 001B;
+  0007 : FFFE;
+  0008 : FFEA;
+  0009 : 000F;
+  000A : FFF8;
+  000B : FFF4;
+  000C : FFEF;
+  000D : FFF5;
+  000E : FFF2;
+  000F : 0011;
+END;
