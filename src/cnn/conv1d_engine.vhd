@@ -72,6 +72,7 @@ architecture Behavioral of conv1d_engine is
 begin
 
     process(clk, reset_n)
+        variable result : signed(31 downto 0);  -- Move variable declaration here
     begin
         if reset_n = '0' then
             state <= IDLE;
@@ -165,19 +166,15 @@ begin
 
                     -- Add bias and apply ReLU
                     -- output = ReLU(accumulator + bias)
-                    declare
-                        variable result : signed(31 downto 0);
-                    begin
-                        result := accumulator + (bias_reg & "00000000");  -- Extend bias to 32-bit
+                    result := accumulator + (bias_reg & "00000000");  -- Extend bias to 32-bit
 
-                        -- ReLU: max(0, result)
-                        if result(31) = '1' then  -- Negative
-                            output_data <= (others => '0');
-                        else
-                            -- Truncate back to 16-bit Q8.8
-                            output_data <= result(23 downto 8);
-                        end if;
-                    end;
+                    -- ReLU: max(0, result)
+                    if result(31) = '1' then  -- Negative
+                        output_data <= (others => '0');
+                    else
+                        -- Truncate back to 16-bit Q8.8
+                        output_data <= result(23 downto 8);
+                    end if;
 
                     -- Write to output buffer: output[out_ch][x_pos]
                     output_addr <= out_ch * OUTPUT_LENGTH + x_pos;
