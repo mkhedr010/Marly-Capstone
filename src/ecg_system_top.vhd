@@ -41,9 +41,9 @@ entity ecg_system_top is
         -- VGA Output
         vga_hsync    : out std_logic;
         vga_vsync    : out std_logic;
-        vga_r        : out std_logic_vector(2 downto 0);
-        vga_g        : out std_logic_vector(2 downto 0);
-        vga_b        : out std_logic_vector(1 downto 0);
+        vga_r        : out std_logic_vector(9 downto 0);
+        vga_g        : out std_logic_vector(9 downto 0);
+        vga_b        : out std_logic_vector(9 downto 0);
         
         -- CNN Interface (connects to Ayoub's module - internal signals)
         cnn_sample   : out std_logic_vector(11 downto 0);
@@ -105,9 +105,9 @@ architecture Behavioral of ecg_system_top is
             display_on    : in  std_logic;
             ecg_sample    : in  std_logic_vector(11 downto 0);
             sample_valid  : in  std_logic;
-            vga_r         : out std_logic_vector(2 downto 0);
-            vga_g         : out std_logic_vector(2 downto 0);
-            vga_b         : out std_logic_vector(1 downto 0)
+            vga_r         : out std_logic_vector(9 downto 0);
+            vga_g         : out std_logic_vector(9 downto 0);
+            vga_b         : out std_logic_vector(9 downto 0)
         );
     end component;
     

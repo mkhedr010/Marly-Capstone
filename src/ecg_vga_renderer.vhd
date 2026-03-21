@@ -36,9 +36,9 @@ entity ecg_vga_renderer is
         sample_valid  : in  std_logic;   -- Pulse when new sample arrives
         
         -- RGB output
-        vga_r         : out std_logic_vector(2 downto 0);
-        vga_g         : out std_logic_vector(2 downto 0);
-        vga_b         : out std_logic_vector(1 downto 0)
+        vga_r         : out std_logic_vector(9 downto 0);
+        vga_g         : out std_logic_vector(9 downto 0);
+        vga_b         : out std_logic_vector(9 downto 0)
     );
 end ecg_vga_renderer;
 
@@ -143,9 +143,10 @@ begin
         end if;
     end process;
     
-    -- Map 8-bit RGB to output pins (assuming 3-3-2 RGB)
-    vga_r <= rgb_out(7 downto 5);  -- 3 bits red
-    vga_g <= rgb_out(4 downto 2);  -- 3 bits green
-    vga_b <= rgb_out(1 downto 0);  -- 2 bits blue
-    
+    -- Map 8-bit internal RGB to 10-bit DE2 DAC outputs
+    -- Strategy: Expand by replicating MSBs + padding
+    vga_r <= rgb_out(7 downto 5) & rgb_out(7 downto 5) & rgb_out(7 downto 5) & '0';  -- 3→10 bits
+    vga_g <= rgb_out(4 downto 2) & rgb_out(4 downto 2) & rgb_out(4 downto 2) & '0';  -- 3→10 bits
+    vga_b <= rgb_out(1 downto 0) & rgb_out(1 downto 0) & rgb_out(1 downto 0) & rgb_out(1 downto 0) & "00";  -- 2→10 bits
+
 end Behavioral;
