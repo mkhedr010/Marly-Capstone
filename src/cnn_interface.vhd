@@ -23,13 +23,13 @@ entity cnn_interface is
         ecg_sample_in   : in  std_logic_vector(11 downto 0);
         sample_valid_in : in  std_logic;
         
-        -- To CNN module (Ayoub's)
+        -- To CNN module (for debugging/monitoring)
         cnn_sample      : out std_logic_vector(11 downto 0);
         cnn_valid       : out std_logic;
-        
-        -- From CNN module
-        cnn_result      : in  std_logic_vector(1 downto 0);
-        cnn_result_valid: in  std_logic
+
+        -- From CNN module (now generated internally)
+        cnn_result      : out std_logic_vector(1 downto 0);
+        cnn_result_valid: out std_logic
     );
 end cnn_interface;
 

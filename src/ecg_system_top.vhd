@@ -43,13 +43,7 @@ entity ecg_system_top is
         vga_vsync    : out std_logic;
         vga_r        : out std_logic_vector(9 downto 0);
         vga_g        : out std_logic_vector(9 downto 0);
-        vga_b        : out std_logic_vector(9 downto 0);
-        
-        -- CNN Interface (connects to Ayoub's module - internal signals)
-        cnn_sample   : out std_logic_vector(11 downto 0);
-        cnn_valid    : out std_logic;
-        cnn_result   : in  std_logic_vector(1 downto 0);
-        cnn_result_valid : in  std_logic
+        vga_b        : out std_logic_vector(9 downto 0)
     );
 end ecg_system_top;
 
@@ -159,10 +153,12 @@ architecture Behavioral of ecg_system_top is
     
     -- User interface signals
     signal system_enable_int : std_logic;
-    
-    -- CNN interface internal signals
+
+    -- CNN interface internal signals (now all internal, not external ports)
     signal cnn_sample_int      : std_logic_vector(11 downto 0);
     signal cnn_valid_int       : std_logic;
+    signal cnn_result_int      : std_logic_vector(1 downto 0);
+    signal cnn_result_valid_int: std_logic;
     
 begin
     
@@ -232,8 +228,8 @@ begin
             reset_n       => reset_n,
             btn           => btn,
             uart_active   => uart_active_int,
-            cnn_result    => cnn_result,
-            cnn_valid     => cnn_result_valid,
+            cnn_result    => cnn_result_int,
+            cnn_valid     => cnn_result_valid_int,
             system_enable => system_enable_int,
             led           => led
         );
@@ -247,12 +243,8 @@ begin
             sample_valid_in  => sample_valid_uart,
             cnn_sample       => cnn_sample_int,
             cnn_valid        => cnn_valid_int,
-            cnn_result       => cnn_result,
-            cnn_result_valid => cnn_result_valid
+            cnn_result       => cnn_result_int,
+            cnn_result_valid => cnn_result_valid_int
         );
-    
-    -- Map CNN interface to top-level ports
-    cnn_sample <= cnn_sample_int;
-    cnn_valid  <= cnn_valid_int;
     
 end Behavioral;
