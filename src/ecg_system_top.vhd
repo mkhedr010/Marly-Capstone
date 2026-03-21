@@ -130,8 +130,8 @@ architecture Behavioral of ecg_system_top is
             sample_valid_in : in  std_logic;
             cnn_sample      : out std_logic_vector(11 downto 0);
             cnn_valid       : out std_logic;
-            cnn_result      : in  std_logic_vector(1 downto 0);
-            cnn_result_valid: in  std_logic
+            cnn_result      : out std_logic_vector(1 downto 0);
+            cnn_result_valid: out std_logic
         );
     end component;
     
