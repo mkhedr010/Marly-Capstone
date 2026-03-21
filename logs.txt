@@ -1,0 +1,3 @@
+Error (10500): VHDL syntax error at conv1d_engine.vhd(169) near text "variable";  expecting "(", or "'", or "."
+Error (10500): VHDL syntax error at conv1d_engine.vhd(170) near text "begin";  expecting "end", or "(", or an identifier ("begin" is a reserved keyword), or a sequential statement
+Error (10500): VHDL syntax error at conv1d_engine.vhd(180) near text ";";  expecting "case"
