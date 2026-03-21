@@ -69,12 +69,12 @@ begin
     -- Scaling: divide by 16 to fit range
     process(clk)
         variable temp : signed(15 downto 0);
-        variable sign_bit : std_logic;
+        variable extended : std_logic_vector(15 downto 0);
     begin
         if rising_edge(clk) then
-            -- Sign-extend 12-bit to 16-bit, then divide by 16 (shift right 4)
-            sign_bit := rd_data_raw(11);
-            temp := signed(sign_bit & sign_bit & sign_bit & sign_bit & rd_data_raw);
+            -- Sign-extend 12-bit to 16-bit
+            extended := rd_data_raw(11) & rd_data_raw(11) & rd_data_raw(11) & rd_data_raw(11) & rd_data_raw;
+            temp := signed(extended);
             rd_data <= shift_right(temp, 4);  -- Divide by 16 to normalize
         end if;
     end process;
