@@ -19,7 +19,7 @@ Version: 1.0
 import serial
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
+import matplotlib.pyplot as pltcd sc
 from matplotlib.animation import FuncAnimation
 from collections import deque
 import threading
