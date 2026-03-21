@@ -51,7 +51,7 @@ architecture Behavioral of zolotyhnet_top is
     -- Processing state machine
     type cnn_state_type is (
         IDLE,
-        PROCESSING,
+        PROC_ACTIVE,
         OUTPUT_RESULT,
         WAIT_CLEAR
     );
@@ -105,7 +105,7 @@ begin
             end if;
 
             -- Clear ready flag when processing starts
-            if cnn_state = PROCESSING then
+            if cnn_state = PROC_ACTIVE then
                 buffer_ready <= '0';
             end if;
 
@@ -133,12 +133,12 @@ begin
 
                 when IDLE =>
                     if buffer_ready = '1' then
-                        cnn_state <= PROCESSING;
+                        cnn_state <= PROC_ACTIVE;
                         processing <= '1';
                         process_cycles <= 0;
                     end if;
 
-                when PROCESSING =>
+                when PROC_ACTIVE =>
                     -- Simulate CNN processing with delay
                     -- In full implementation, this would coordinate all Conv/Linear layers
                     if process_cycles < CYCLES_PER_INFERENCE then

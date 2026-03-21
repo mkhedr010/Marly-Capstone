@@ -140,22 +140,16 @@ begin
             -- LED[2]: System paused
             led_int(2) <= paused;
             
-            -- LED[3]: CNN result indicator
-            -- Blink pattern based on classification result
+            -- LED[3]: CNN processing indicator
+            -- TOGGLE on each CNN result to show processing is happening
             if cnn_valid = '1' then
-                case cnn_result is
-                    when "00" =>  -- Normal
-                        led_int(3) <= '0';
-                    when "01" =>  -- PVC/Ventricular
-                        led_int(3) <= '1';
-                    when "10" =>  -- AFib
-                        led_int(3) <= '1';
-                    when others =>
-                        led_int(3) <= '0';
-                end case;
-            else
-                led_int(3) <= '0';
+                led_int(3) <= not led_int(3);  -- Toggle to make visible
             end if;
+
+            -- For final version with real classification:
+            -- if cnn_valid = '1' then
+            --     led_int(3) <= '1' when cnn_result /= "00" else '0';
+            -- end if;
             
         end if;
     end process;
