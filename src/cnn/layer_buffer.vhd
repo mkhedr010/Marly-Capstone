@@ -34,27 +34,24 @@ architecture Behavioral of layer_buffer is
     type ram_type is array (0 to DEPTH-1) of signed(DATA_WIDTH-1 downto 0);
     signal ram : ram_type := (others => (others => '0'));
 
+    -- Force M4K inference
+    attribute ramstyle : string;
+    attribute ramstyle of ram : signal is "M4K";
+
 begin
 
-    -- Write process
+    -- Simple dual-port RAM (write port A, read port B)
+    -- CRITICAL: No conditional logic on reads for M4K inference
     process(clk)
     begin
         if rising_edge(clk) then
-            if wr_en = '1' and wr_addr < DEPTH then
+            -- Write (port A)
+            if wr_en = '1' then
                 ram(wr_addr) <= wr_data;
             end if;
-        end if;
-    end process;
 
-    -- Read process
-    process(clk)
-    begin
-        if rising_edge(clk) then
-            if rd_addr < DEPTH then
-                rd_data <= ram(rd_addr);
-            else
-                rd_data <= (others => '0');
-            end if;
+            -- Read (port B) - pure synchronous, no conditions
+            rd_data <= ram(rd_addr);
         end if;
     end process;
 

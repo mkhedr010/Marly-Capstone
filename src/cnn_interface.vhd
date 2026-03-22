@@ -29,22 +29,15 @@ entity cnn_interface is
 
         -- From CNN module (now generated internally)
         cnn_result      : out std_logic_vector(1 downto 0);
-        cnn_result_valid: out std_logic;
+        cnn_result_valid: out std_logic
 
-        -- SDRAM interface (pass-through to zolotyhnet)
-        sdram_addr      : out std_logic_vector(22 downto 0);
-        sdram_data_in   : in  std_logic_vector(15 downto 0);
-        sdram_data_out  : out std_logic_vector(15 downto 0);
-        sdram_read_req  : out std_logic;
-        sdram_write_req : out std_logic;
-        sdram_data_valid: in  std_logic;
-        sdram_busy      : in  std_logic
+        -- NO SDRAM PORTS (weights stored in on-chip ROM)
     );
 end cnn_interface;
 
 architecture Behavioral of cnn_interface is
 
-    -- Component declaration for ZolotyhNet CNN
+    -- Component declaration for ZolotyhNet CNN (LINEAR-ONLY, NO SDRAM)
     component zolotyhnet_top
         port (
             clk             : in  std_logic;
@@ -52,14 +45,7 @@ architecture Behavioral of cnn_interface is
             ecg_sample      : in  std_logic_vector(11 downto 0);
             sample_valid    : in  std_logic;
             class_result    : out std_logic_vector(2 downto 0);
-            result_valid    : out std_logic;
-            sdram_addr      : out std_logic_vector(22 downto 0);
-            sdram_data_in   : in  std_logic_vector(15 downto 0);
-            sdram_data_out  : out std_logic_vector(15 downto 0);
-            sdram_read_req  : out std_logic;
-            sdram_write_req : out std_logic;
-            sdram_data_valid: in  std_logic;
-            sdram_busy      : in  std_logic
+            result_valid    : out std_logic
         );
     end component;
 
@@ -70,7 +56,7 @@ architecture Behavioral of cnn_interface is
 begin
 
     --------------------------------------------------------------------------------
-    -- Instantiate ZolotyhNet CNN
+    -- Instantiate ZolotyhNet CNN (LINEAR-ONLY, ROM-based weights)
     --------------------------------------------------------------------------------
     cnn_inst : zolotyhnet_top
         port map (
@@ -79,14 +65,7 @@ begin
             ecg_sample   => ecg_sample_in,
             sample_valid => sample_valid_in,
             class_result => class_result_int,
-            result_valid => result_valid_int,
-            sdram_addr      => sdram_addr,
-            sdram_data_in   => sdram_data_in,
-            sdram_data_out  => sdram_data_out,
-            sdram_read_req  => sdram_read_req,
-            sdram_write_req => sdram_write_req,
-            sdram_data_valid => sdram_data_valid,
-            sdram_busy => sdram_busy
+            result_valid => result_valid_int
         );
 
     --------------------------------------------------------------------------------

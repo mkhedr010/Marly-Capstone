@@ -1,15 +1,15 @@
 --------------------------------------------------------------------------------
 -- ZolotyhNet LINEAR-ONLY Implementation
 -- Simplified CNN using ONLY the lower (linear) path
--- GUARANTEED to fit on DE2 board
+-- OPTIMIZED to fit on DE2 board with correct ADDR_WIDTH sizing
 --
 -- Architecture: Input → LINEAR1 → LINEAR2 → LINEAR3 → Classifier → Argmax
 -- Total: 4 layers (all linear/FC)
--- Memory: ~150KB (plenty of margin)
+-- Memory: ~49 M4K blocks (53% margin under 105 limit)
 --
 -- Author: Marly Capstone
 -- Date: March 2026
--- Version: SIMPLIFIED BUT WORKING
+-- Version: FIXED - Optimized ADDR_WIDTH, NO SDRAM
 --------------------------------------------------------------------------------
 
 library IEEE;
@@ -23,16 +23,8 @@ entity zolotyhnet_top is
         ecg_sample      : in  std_logic_vector(11 downto 0);
         sample_valid    : in  std_logic;
         class_result    : out std_logic_vector(2 downto 0);
-        result_valid    : out std_logic;
-
-        -- SDRAM interface (for weight storage)
-        sdram_addr      : out std_logic_vector(22 downto 0);
-        sdram_data_in   : in  std_logic_vector(15 downto 0);
-        sdram_data_out  : out std_logic_vector(15 downto 0);
-        sdram_read_req  : out std_logic;
-        sdram_write_req : out std_logic;
-        sdram_data_valid: in  std_logic;
-        sdram_busy      : in  std_logic
+        result_valid    : out std_logic
+        -- NO SDRAM PORTS!
     );
 end zolotyhnet_top;
 
@@ -69,24 +61,18 @@ architecture Behavioral of zolotyhnet_top is
         );
     end component;
 
-    component weight_rom_sdram
+    component weight_rom
         generic (
             DATA_WIDTH : integer;
             ADDR_WIDTH : integer;
-            BASE_ADDR  : integer;
-            SIZE       : integer
+            INIT_FILE  : string
         );
         port (
-            clk             : in  std_logic;
-            addr_a          : in  integer range 0 to 16383;
-            data_a          : out signed(15 downto 0);
-            addr_b          : in  integer range 0 to 16383;
-            data_b          : out signed(15 downto 0);
-            sdram_addr      : out std_logic_vector(22 downto 0);
-            sdram_data_in   : in  std_logic_vector(15 downto 0);
-            sdram_read_req  : out std_logic;
-            sdram_data_valid: in  std_logic;
-            sdram_busy      : in  std_logic
+            clk    : in  std_logic;
+            addr_a : in  integer range 0 to 16383;
+            data_a : out signed(15 downto 0);
+            addr_b : in  integer range 0 to 16383;
+            data_b : out signed(15 downto 0)
         );
     end component;
 
@@ -181,15 +167,15 @@ architecture Behavioral of zolotyhnet_top is
     signal classifier_output_addr: integer range 0 to 8191;
     signal classifier_output_we  : std_logic;
 
-    -- Weight ROM data signals (8 total - only linear path)
-    signal linear0_weight_data, linear0_bias_data : signed(15 downto 0);
-    signal linear1_weight_data, linear1_bias_data : signed(15 downto 0);
-    signal linear2_weight_data, linear2_bias_data : signed(15 downto 0);
+    -- Weight ROM data signals
+    signal linear0_weight_data, linear0_bias_data       : signed(15 downto 0);
+    signal linear1_weight_data, linear1_bias_data       : signed(15 downto 0);
+    signal linear2_weight_data, linear2_bias_data       : signed(15 downto 0);
     signal classifier_weight_data, classifier_bias_data : signed(15 downto 0);
 
     -- Final outputs
     signal linear3_final : array_8x16 := (others => (others => '0'));
-    signal class_scores : array_8x16 := (others => (others => '0'));
+    signal class_scores  : array_8x16 := (others => (others => '0'));
 
     signal layer_counter : integer range 0 to 20000 := 0;
 
@@ -211,55 +197,146 @@ begin
 
     --------------------------------------------------------------------------------
     -- Weight ROM Instances (8 total - LINEAR path only)
+    -- *** CRITICAL: ADDR_WIDTH optimized per ROM to save M4K blocks ***
     --------------------------------------------------------------------------------
 
-    -- SDRAM-based weight ROMs (weights stored in external SDRAM)
-    -- BASE_ADDR values create memory map in SDRAM
-
-    linear0_weight_sdram : weight_rom_sdram
-        generic map (DATA_WIDTH => 16, ADDR_WIDTH => 14, BASE_ADDR => 0, SIZE => 8192)
+    -- LINEAR0: 128→64
+    -- Weight matrix: 128×64 = 8,192 entries → ADDR_WIDTH=13 (2^13=8192) → 32 M4K
+    linear0_weight_rom : weight_rom
+        generic map (
+            DATA_WIDTH => 16,
+            ADDR_WIDTH => 13,
+            INIT_FILE  => "weights/linear0_weight.mif"
+        )
         port map (
-            clk => clk,
-            addr_a => linear1_weight_addr, data_a => linear0_weight_data,
-            addr_b => 0, data_b => open,
-            sdram_addr => sdram_addr, sdram_data_in => sdram_data_in,
-            sdram_read_req => sdram_read_req, sdram_data_valid => sdram_data_valid,
-            sdram_busy => sdram_busy
+            clk    => clk,
+            addr_a => linear1_weight_addr,
+            data_a => linear0_weight_data,
+            addr_b => 0,
+            data_b => open
         );
 
-    linear0_bias_sdram : weight_rom_sdram
-        generic map (DATA_WIDTH => 16, ADDR_WIDTH => 14, BASE_ADDR => 8192, SIZE => 64)
+    -- Bias vector: 64 entries → ADDR_WIDTH=6 (2^6=64) → 1 M4K
+    linear0_bias_rom : weight_rom
+        generic map (
+            DATA_WIDTH => 16,
+            ADDR_WIDTH => 6,
+            INIT_FILE  => "weights/linear0_bias.mif"
+        )
         port map (
-            clk => clk,
-            addr_a => linear1_bias_addr, data_a => linear0_bias_data,
-            addr_b => 0, data_b => open,
-            sdram_addr => open, sdram_data_in => sdram_data_in,
-            sdram_read_req => open, sdram_data_valid => sdram_data_valid,
-            sdram_busy => sdram_busy
+            clk    => clk,
+            addr_a => linear1_bias_addr,
+            data_a => linear0_bias_data,
+            addr_b => 0,
+            data_b => open
         );
 
-    -- NOTE: Simplified - using only linear0 weights for ALL layers for now
-    -- Full version would have all 8 ROMs with proper BASE_ADDR offsets
+    -- LINEAR1: 64→16
+    -- Weight matrix: 64×16 = 1,024 entries → ADDR_WIDTH=10 (2^10=1024) → 4 M4K
+    linear1_weight_rom : weight_rom
+        generic map (
+            DATA_WIDTH => 16,
+            ADDR_WIDTH => 10,
+            INIT_FILE  => "weights/linear1_weight.mif"
+        )
+        port map (
+            clk    => clk,
+            addr_a => linear2_weight_addr,
+            data_a => linear1_weight_data,
+            addr_b => 0,
+            data_b => open
+        );
 
-    -- Map other weight signals to linear0 (simplified)
-    linear1_weight_data <= linear0_weight_data;
-    linear1_bias_data <= linear0_bias_data;
-    linear2_weight_data <= linear0_weight_data;
-    linear2_bias_data <= linear0_bias_data;
-    classifier_weight_data <= linear0_weight_data;
-    classifier_bias_data <= linear0_bias_data;
+    -- Bias vector: 16 entries → ADDR_WIDTH=4 (2^4=16) → 1 M4K
+    linear1_bias_rom : weight_rom
+        generic map (
+            DATA_WIDTH => 16,
+            ADDR_WIDTH => 4,
+            INIT_FILE  => "weights/linear1_bias.mif"
+        )
+        port map (
+            clk    => clk,
+            addr_a => linear2_bias_addr,
+            data_a => linear1_bias_data,
+            addr_b => 0,
+            data_b => open
+        );
+
+    -- LINEAR2: 16→8
+    -- Weight matrix: 16×8 = 128 entries → ADDR_WIDTH=7 (2^7=128) → 1 M4K
+    linear2_weight_rom : weight_rom
+        generic map (
+            DATA_WIDTH => 16,
+            ADDR_WIDTH => 7,
+            INIT_FILE  => "weights/linear2_weight.mif"
+        )
+        port map (
+            clk    => clk,
+            addr_a => linear3_weight_addr,
+            data_a => linear2_weight_data,
+            addr_b => 0,
+            data_b => open
+        );
+
+    -- Bias vector: 8 entries → ADDR_WIDTH=3 (2^3=8) → 1 M4K
+    linear2_bias_rom : weight_rom
+        generic map (
+            DATA_WIDTH => 16,
+            ADDR_WIDTH => 3,
+            INIT_FILE  => "weights/linear2_bias.mif"
+        )
+        port map (
+            clk    => clk,
+            addr_a => linear3_bias_addr,
+            data_a => linear2_bias_data,
+            addr_b => 0,
+            data_b => open
+        );
+
+    -- CLASSIFIER: 8→8
+    -- Weight matrix: 8×8 = 64 entries → ADDR_WIDTH=6 (2^6=64) → 1 M4K
+    classifier_weight_rom : weight_rom
+        generic map (
+            DATA_WIDTH => 16,
+            ADDR_WIDTH => 6,
+            INIT_FILE  => "weights/classifier_weight.mif"
+        )
+        port map (
+            clk    => clk,
+            addr_a => classifier_weight_addr,
+            data_a => classifier_weight_data,
+            addr_b => 0,
+            data_b => open
+        );
+
+    -- Bias vector: 8 entries → ADDR_WIDTH=3 (2^3=8) → 1 M4K
+    classifier_bias_rom : weight_rom
+        generic map (
+            DATA_WIDTH => 16,
+            ADDR_WIDTH => 3,
+            INIT_FILE  => "weights/classifier_bias.mif"
+        )
+        port map (
+            clk    => clk,
+            addr_a => classifier_bias_addr,
+            data_a => classifier_bias_data,
+            addr_b => 0,
+            data_b => open
+        );
+
+    -- TOTAL ROM M4K: 32+1+4+1+1+1+1+1 = 42 blocks ✓
 
     --------------------------------------------------------------------------------
-    -- Layer Buffer Instances (3 small buffers)
+    -- Layer Buffer Instances
     --------------------------------------------------------------------------------
 
     linear1_buffer : layer_buffer
         generic map (DATA_WIDTH => 16, DEPTH => 64)
         port map (
-            clk => clk,
+            clk     => clk,
             wr_addr => linear1_output_addr,
             wr_data => linear1_output_data,
-            wr_en => linear1_output_we,
+            wr_en   => linear1_output_we,
             rd_addr => linear2_input_addr,
             rd_data => linear2_input_data
         );
@@ -267,16 +344,16 @@ begin
     linear2_buffer : layer_buffer
         generic map (DATA_WIDTH => 16, DEPTH => 16)
         port map (
-            clk => clk,
+            clk     => clk,
             wr_addr => linear2_output_addr,
             wr_data => linear2_output_data,
-            wr_en => linear2_output_we,
+            wr_en   => linear2_output_we,
             rd_addr => linear3_input_addr,
             rd_data => linear3_input_data
         );
 
     --------------------------------------------------------------------------------
-    -- LINEAR Engine Instances (4 total)
+    -- LINEAR Engine Instances
     --------------------------------------------------------------------------------
 
     linear1_inst : linear_engine
@@ -375,12 +452,12 @@ begin
         if reset_n = '0' then
             sample_count <= 0;
             buffer_ready <= '0';
-            buf_wr_addr <= 0;
+            buf_wr_addr  <= 0;
 
         elsif rising_edge(clk) then
 
             if sample_valid = '1' then
-                buf_wr_addr <= sample_count mod 128;
+                buf_wr_addr  <= sample_count mod 128;
                 sample_count <= sample_count + 1;
 
                 if (sample_count mod 128) = 127 and cnn_state = IDLE then
@@ -400,30 +477,30 @@ begin
     end process;
 
     --------------------------------------------------------------------------------
-    -- Main CNN State Machine (LINEAR-ONLY path)
+    -- Main CNN State Machine
     --------------------------------------------------------------------------------
     process(clk, reset_n)
         variable max_score : signed(15 downto 0);
         variable max_index : integer range 0 to 7;
     begin
         if reset_n = '0' then
-            cnn_state <= IDLE;
+            cnn_state    <= IDLE;
             result_valid <= '0';
             layer_counter <= 0;
 
         elsif rising_edge(clk) then
 
-            result_valid <= '0';
-            linear1_start <= '0';
-            linear2_start <= '0';
-            linear3_start <= '0';
+            result_valid     <= '0';
+            linear1_start    <= '0';
+            linear2_start    <= '0';
+            linear3_start    <= '0';
             classifier_start <= '0';
 
             case cnn_state is
 
                 when IDLE =>
                     if buffer_ready = '1' then
-                        cnn_state <= LINEAR1;
+                        cnn_state     <= LINEAR1;
                         layer_counter <= 0;
                         linear1_start <= '1';
                     end if;
@@ -431,7 +508,7 @@ begin
                 when LINEAR1 =>
                     layer_counter <= layer_counter + 1;
                     if layer_counter > 10000 or linear1_done = '1' then
-                        cnn_state <= LINEAR2;
+                        cnn_state     <= LINEAR2;
                         layer_counter <= 0;
                         linear2_start <= '1';
                     end if;
@@ -439,7 +516,7 @@ begin
                 when LINEAR2 =>
                     layer_counter <= layer_counter + 1;
                     if layer_counter > 1500 or linear2_done = '1' then
-                        cnn_state <= LINEAR3;
+                        cnn_state     <= LINEAR3;
                         layer_counter <= 0;
                         linear3_start <= '1';
                     end if;
@@ -452,8 +529,8 @@ begin
                     end if;
 
                     if layer_counter > 200 or linear3_done = '1' then
-                        cnn_state <= CLASSIFIER;
-                        layer_counter <= 0;
+                        cnn_state        <= CLASSIFIER;
+                        layer_counter    <= 0;
                         classifier_start <= '1';
                     end if;
 
@@ -465,7 +542,7 @@ begin
                     end if;
 
                     if layer_counter > 100 or classifier_done = '1' then
-                        cnn_state <= ARGMAX;
+                        cnn_state     <= ARGMAX;
                         layer_counter <= 0;
                     end if;
 
@@ -482,13 +559,13 @@ begin
                     end loop;
 
                     class_result <= std_logic_vector(to_unsigned(max_index, 3));
-                    cnn_state <= OUTPUT_RESULT;
+                    cnn_state    <= OUTPUT_RESULT;
 
                 when OUTPUT_RESULT =>
-                    result_valid <= '1';
+                    result_valid  <= '1';
                     layer_counter <= layer_counter + 1;
                     if layer_counter > 1000 then
-                        cnn_state <= IDLE;
+                        cnn_state     <= IDLE;
                         layer_counter <= 0;
                     end if;
 
@@ -504,7 +581,9 @@ begin
     -- Signal Connections
     --------------------------------------------------------------------------------
 
-    buf_rd_addr <= linear1_input_addr when cnn_state = LINEAR1 else 0;
-    classifier_input_data <= linear3_final(classifier_input_addr) when classifier_input_addr < 8 else (others => '0');
+    buf_rd_addr          <= linear1_input_addr when cnn_state = LINEAR1 else 0;
+    classifier_input_data <= linear3_final(classifier_input_addr)
+                             when classifier_input_addr < 8
+                             else (others => '0');
 
 end Behavioral;
