@@ -34,6 +34,10 @@ architecture Behavioral of layer_buffer is
     type ram_type is array (0 to DEPTH-1) of signed(DATA_WIDTH-1 downto 0);
     signal ram : ram_type := (others => (others => '0'));
 
+    -- Quartus attributes to force M4K block RAM inference
+    attribute ramstyle : string;
+    attribute ramstyle of ram : signal is "M4K";
+
 begin
 
     -- Write process

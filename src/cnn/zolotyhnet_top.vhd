@@ -404,11 +404,104 @@ begin
         port map (clk => clk, addr_a => classifier_bias_addr, data_a => classifier_bias_data, addr_b => 0, data_b => open);
 
     --------------------------------------------------------------------------------
-    -- Intermediate Layer Buffers (simplified - store only final outputs)
+    -- Layer Buffer Instances (8 total) - Store intermediate activations
     --------------------------------------------------------------------------------
 
-    -- NOTE: Full implementation would have layer_buffer instances here
-    -- For now, using simplified direct connections
+    -- Buffer after CONV1: stores 8×128 values
+    conv1_buffer : layer_buffer
+        generic map (DATA_WIDTH => 16, DEPTH => 1024)  -- 8 channels × 128 length
+        port map (
+            clk => clk,
+            wr_addr => conv1_output_addr,
+            wr_data => conv1_output_data,
+            wr_en => conv1_output_we,
+            rd_addr => conv2_input_addr,
+            rd_data => conv2_input_data
+        );
+
+    -- Buffer after CONV2: stores 16×64 values
+    conv2_buffer : layer_buffer
+        generic map (DATA_WIDTH => 16, DEPTH => 1024)  -- 16 channels × 64 length
+        port map (
+            clk => clk,
+            wr_addr => conv2_output_addr,
+            wr_data => conv2_output_data,
+            wr_en => conv2_output_we,
+            rd_addr => conv3_input_addr,
+            rd_data => conv3_input_data
+        );
+
+    -- Buffer after CONV3: stores 32×32 values
+    conv3_buffer : layer_buffer
+        generic map (DATA_WIDTH => 16, DEPTH => 1024)  -- 32 channels × 32 length
+        port map (
+            clk => clk,
+            wr_addr => conv3_output_addr,
+            wr_data => conv3_output_data,
+            wr_en => conv3_output_we,
+            rd_addr => conv4_input_addr,
+            rd_data => conv4_input_data
+        );
+
+    -- Buffer after CONV4: stores 32×16 values
+    conv4_buffer : layer_buffer
+        generic map (DATA_WIDTH => 16, DEPTH => 512)  -- 32 channels × 16 length
+        port map (
+            clk => clk,
+            wr_addr => conv4_output_addr,
+            wr_data => conv4_output_data,
+            wr_en => conv4_output_we,
+            rd_addr => conv5_input_addr,
+            rd_data => conv5_input_data
+        );
+
+    -- Buffer after LINEAR1: stores 64 values
+    linear1_buffer : layer_buffer
+        generic map (DATA_WIDTH => 16, DEPTH => 64)
+        port map (
+            clk => clk,
+            wr_addr => linear1_output_addr,
+            wr_data => linear1_output_data,
+            wr_en => linear1_output_we,
+            rd_addr => linear2_input_addr,
+            rd_data => linear2_input_data
+        );
+
+    -- Buffer after LINEAR2: stores 16 values
+    linear2_buffer : layer_buffer
+        generic map (DATA_WIDTH => 16, DEPTH => 16)
+        port map (
+            clk => clk,
+            wr_addr => linear2_output_addr,
+            wr_data => linear2_output_data,
+            wr_en => linear2_output_we,
+            rd_addr => linear3_input_addr,
+            rd_data => linear3_input_data
+        );
+
+    -- Buffer after LINEAR3: stores 8 values (lower path final)
+    linear3_buffer : layer_buffer
+        generic map (DATA_WIDTH => 16, DEPTH => 8)
+        port map (
+            clk => clk,
+            wr_addr => linear3_output_addr,
+            wr_data => linear3_output_data,
+            wr_en => linear3_output_we,
+            rd_addr => 0,
+            rd_data => open  -- Read directly into lower_final array
+        );
+
+    -- Buffer after CONV5: stores 8 values (upper path final)
+    conv5_buffer : layer_buffer
+        generic map (DATA_WIDTH => 16, DEPTH => 8)
+        port map (
+            clk => clk,
+            wr_addr => conv5_output_addr,
+            wr_data => conv5_output_data,
+            wr_en => conv5_output_we,
+            rd_addr => 0,
+            rd_data => open  -- Read directly into upper_final array
+        );
 
     --------------------------------------------------------------------------------
     -- CONV Engine Instances (5 total)
@@ -432,7 +525,7 @@ begin
             bias_data   => conv0_bias_data,
             bias_addr   => conv1_bias_addr,
             input_data  => buf_rd_data,
-            input_addr  => buf_rd_addr,
+            input_addr  => conv1_input_addr,  -- Engine OUTPUT controls buffer read address
             output_data => conv1_output_data,
             output_addr => conv1_output_addr,
             output_we   => conv1_output_we,
@@ -456,7 +549,7 @@ begin
             weight_addr => conv2_weight_addr,
             bias_data   => conv1_bias_data,
             bias_addr   => conv2_bias_addr,
-            input_data  => conv1_output_data,  -- From previous conv (simplified)
+            input_data  => conv2_input_data,  -- From conv1_buffer
             input_addr  => conv2_input_addr,
             output_data => conv2_output_data,
             output_addr => conv2_output_addr,
@@ -481,7 +574,7 @@ begin
             weight_addr => conv3_weight_addr,
             bias_data   => conv2_bias_data,
             bias_addr   => conv3_bias_addr,
-            input_data  => conv2_output_data,
+            input_data  => conv3_input_data,  -- From conv2_buffer
             input_addr  => conv3_input_addr,
             output_data => conv3_output_data,
             output_addr => conv3_output_addr,
@@ -506,7 +599,7 @@ begin
             weight_addr => conv4_weight_addr,
             bias_data   => conv3_bias_data,
             bias_addr   => conv4_bias_addr,
-            input_data  => conv3_output_data,
+            input_data  => conv4_input_data,  -- From conv3_buffer
             input_addr  => conv4_input_addr,
             output_data => conv4_output_data,
             output_addr => conv4_output_addr,
@@ -531,7 +624,7 @@ begin
             weight_addr => conv5_weight_addr,
             bias_data   => conv4_bias_data,
             bias_addr   => conv5_bias_addr,
-            input_data  => conv4_output_data,
+            input_data  => conv5_input_data,  -- From conv4_buffer
             input_addr  => conv5_input_addr,
             output_data => conv5_output_data,
             output_addr => conv5_output_addr,
@@ -581,7 +674,7 @@ begin
             weight_addr => linear2_weight_addr,
             bias_data   => linear1_bias_data,
             bias_addr   => linear2_bias_addr,
-            input_data  => linear1_output_data,
+            input_data  => linear2_input_data,  -- From linear1_buffer
             input_addr  => linear2_input_addr,
             output_data => linear2_output_data,
             output_addr => linear2_output_addr,
@@ -604,7 +697,7 @@ begin
             weight_addr => linear3_weight_addr,
             bias_data   => linear2_bias_data,
             bias_addr   => linear3_bias_addr,
-            input_data  => linear2_output_data,
+            input_data  => linear3_input_data,  -- From linear2_buffer
             input_addr  => linear3_input_addr,
             output_data => linear3_output_data,
             output_addr => linear3_output_addr,
@@ -832,9 +925,12 @@ begin
 
                 when CONV5 =>
                     layer_counter <= layer_counter + 1;
+                    -- Collect all 8 output values from CONV5 (1×8)
+                    if conv5_output_we = '1' and conv5_output_addr < 8 then
+                        upper_final(conv5_output_addr) <= conv5_output_data;
+                    end if;
+
                     if layer_counter > 500 or conv5_done = '1' then
-                        -- Store upper path final (8 values)
-                        upper_final(0) <= conv5_output_data;
                         cnn_state <= LINEAR1;
                         layer_counter <= 0;
                         linear1_start <= '1';
@@ -858,9 +954,12 @@ begin
 
                 when LINEAR3 =>
                     layer_counter <= layer_counter + 1;
+                    -- Collect all 8 output values from LINEAR3
+                    if linear3_output_we = '1' and linear3_output_addr < 8 then
+                        lower_final(linear3_output_addr) <= linear3_output_data;
+                    end if;
+
                     if layer_counter > 200 or linear3_done = '1' then
-                        -- Store lower path final (8 values)
-                        lower_final(0) <= linear3_output_data;
                         cnn_state <= FUSION;
                         layer_counter <= 0;
                     end if;
@@ -871,14 +970,21 @@ begin
                         fusion_result(i) <= upper_final(i) + lower_final(i);
                     end loop;
 
-                    cnn_state <= CLASSIFIER;
-                    classifier_start <= '1';
+                    layer_counter <= layer_counter + 1;
+                    if layer_counter > 10 then  -- Give time for addition
+                        cnn_state <= CLASSIFIER;
+                        classifier_start <= '1';
+                        layer_counter <= 0;
+                    end if;
 
                 when CLASSIFIER =>
                     layer_counter <= layer_counter + 1;
+                    -- Collect all 8 class scores
+                    if classifier_output_we = '1' and classifier_output_addr < 8 then
+                        class_scores(classifier_output_addr) <= classifier_output_data;
+                    end if;
+
                     if layer_counter > 100 or classifier_done = '1' then
-                        -- Store final scores
-                        class_scores(0) <= classifier_output_data;
                         cnn_state <= ARGMAX;
                         layer_counter <= 0;
                     end if;
@@ -913,5 +1019,18 @@ begin
 
         end if;
     end process;
+
+    --------------------------------------------------------------------------------
+    -- Concurrent Signal Assignments
+    --------------------------------------------------------------------------------
+
+    -- Multiplex buffer read address based on active layer
+    buf_rd_addr <= conv1_input_addr when cnn_state = CONV1 else
+                   linear1_input_addr when cnn_state = LINEAR1 else
+                   0;
+
+    -- Classifier reads from fusion_result array
+    classifier_input_data <= fusion_result(classifier_input_addr) when classifier_input_addr < 8
+                             else (others => '0');
 
 end Behavioral;
