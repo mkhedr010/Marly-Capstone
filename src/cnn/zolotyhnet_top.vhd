@@ -288,20 +288,23 @@ begin
 
         elsif rising_edge(clk) then
 
-            if sample_valid = '1' and cnn_state = IDLE then
+            -- ALWAYS accept incoming samples (don't stop during processing!)
+            if sample_valid = '1' then
                 buf_wr_addr <= sample_count mod 128;
                 sample_count <= sample_count + 1;
 
-                if (sample_count mod 128) = 127 then
+                -- Trigger CNN every 128 samples
+                if (sample_count mod 128) = 127 and cnn_state = IDLE then
                     buffer_ready <= '1';
                 end if;
 
-                -- Prevent overflow
-                if sample_count >= 512 then
+                -- Reset counter to prevent overflow
+                if sample_count >= 256 then
                     sample_count <= 0;
                 end if;
             end if;
 
+            -- Clear ready flag after processing starts
             if cnn_state /= IDLE then
                 buffer_ready <= '0';
             end if;

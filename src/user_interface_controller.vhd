@@ -141,16 +141,26 @@ begin
             -- LED[2]: System paused (DEBUG: show if paused OR if uart not active for debug)
             led_int(2) <= paused;
             
-            -- LED[3]: CNN processing indicator
-            -- Latch ON for 0.2 seconds when CNN outputs result (visible blink)
+            -- LED[3]: CNN classification result
+            -- cnn_result encoding: 00=Normal, 01=PVC, 10=AFib, 11=Other
+            -- LED behavior: OFF=Normal, Solid ON=Abnormal
             if cnn_valid = '1' then
-                led_int(3) <= '1';
-                led3_counter <= CLK_FREQ / 5;  -- Stay ON for 0.2 seconds
+                -- Latch result when CNN outputs
+                case cnn_result is
+                    when "00" =>  -- Normal
+                        led_int(3) <= '0';
+                    when "01" | "10" | "11" =>  -- Any abnormal (PVC, AFib, Other)
+                        led_int(3) <= '1';
+                        led3_counter <= CLK_FREQ;  -- Stay ON for 1 second (visible)
+                    when others =>
+                        led_int(3) <= '0';
+                end case;
             elsif led3_counter > 0 then
+                -- Count down to turn OFF
                 led3_counter <= led3_counter - 1;
-                led_int(3) <= '1';  -- Keep ON while counter running
+                led_int(3) <= '1';
             else
-                led_int(3) <= '0';  -- Turn OFF when counter expires
+                led_int(3) <= '0';
             end if;
             
         end if;
