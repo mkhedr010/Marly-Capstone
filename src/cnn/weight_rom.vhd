@@ -23,12 +23,12 @@ entity weight_rom is
     port (
         clk     : in  std_logic;
 
-        -- Port A
-        addr_a  : in  integer range 0 to 2**ADDR_WIDTH-1;
+        -- Port A (fixed size for all ROM instances)
+        addr_a  : in  integer range 0 to 16383;  -- Max 14-bit address
         data_a  : out signed(DATA_WIDTH-1 downto 0);
 
         -- Port B (optional second port for parallel access)
-        addr_b  : in  integer range 0 to 2**ADDR_WIDTH-1;
+        addr_b  : in  integer range 0 to 16383;  -- Max 14-bit address
         data_b  : out signed(DATA_WIDTH-1 downto 0)
     );
 end weight_rom;
@@ -47,12 +47,21 @@ architecture Behavioral of weight_rom is
 
 begin
 
-    -- Dual-port read process
+    -- Dual-port read process (with bounds checking)
     process(clk)
     begin
         if rising_edge(clk) then
-            data_a <= rom_data(addr_a);
-            data_b <= rom_data(addr_b);
+            if addr_a < 2**ADDR_WIDTH then
+                data_a <= rom_data(addr_a);
+            else
+                data_a <= (others => '0');
+            end if;
+
+            if addr_b < 2**ADDR_WIDTH then
+                data_b <= rom_data(addr_b);
+            else
+                data_b <= (others => '0');
+            end if;
         end if;
     end process;
 

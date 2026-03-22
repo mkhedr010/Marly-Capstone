@@ -170,11 +170,16 @@ architecture Behavioral of zolotyhnet_top is
     signal linear_output_addr: integer range 0 to 8191;
     signal linear_output_we  : std_logic;
 
-    -- Weight/bias ROM signals (multiplexed)
-    signal weight_addr : integer range 0 to 16383 := 0;
-    signal weight_data : signed(15 downto 0);
-    signal bias_addr   : integer range 0 to 16383 := 0;
-    signal bias_data   : signed(15 downto 0);
+    -- Weight/bias ROM signals - SEPARATE for conv and linear engines
+    signal conv_weight_addr   : integer range 0 to 8191 := 0;
+    signal linear_weight_addr : integer range 0 to 16383 := 0;
+    signal weight_addr        : integer range 0 to 16383 := 0;
+    signal weight_data        : signed(15 downto 0);
+
+    signal conv_bias_addr   : integer range 0 to 255 := 0;
+    signal linear_bias_addr : integer range 0 to 255 := 0;
+    signal bias_addr        : integer range 0 to 16383 := 0;
+    signal bias_data        : signed(15 downto 0);
 
     -- Layer outputs (simplified storage)
     signal upper_output : array_8x16 := (others => (others => '0'));
@@ -216,7 +221,7 @@ begin
     conv_engine : conv1d_engine
         generic map (
             DATA_WIDTH   => 16,
-            IN_CHANNELS  => 1,  -- Will be reconfigured per layer
+            IN_CHANNELS  => 1,
             OUT_CHANNELS => 8,
             INPUT_LENGTH => 128,
             KERNEL_SIZE  => 3
@@ -226,9 +231,9 @@ begin
             reset_n     => reset_n,
             start       => conv_start,
             weight_data => weight_data,
-            weight_addr => weight_addr,
+            weight_addr => conv_weight_addr,
             bias_data   => bias_data,
-            bias_addr   => bias_addr,
+            bias_addr   => conv_bias_addr,
             input_data  => conv_input_data,
             input_addr  => conv_input_addr,
             output_data => conv_output_data,
@@ -249,9 +254,9 @@ begin
             reset_n     => reset_n,
             start       => linear_start,
             weight_data => weight_data,
-            weight_addr => weight_addr,
+            weight_addr => linear_weight_addr,
             bias_data   => bias_data,
-            bias_addr   => bias_addr,
+            bias_addr   => linear_bias_addr,
             input_data  => linear_input_data,
             input_addr  => linear_input_addr,
             output_data => linear_output_data,
@@ -464,10 +469,22 @@ begin
     --------------------------------------------------------------------------------
 
     -- CONV0 (Conv1: 1→8, k3)
+    -- Multiplex weight addresses based on active engine
+    weight_addr <= conv_weight_addr when (cnn_state = CONV1 or cnn_state = CONV2 or
+                                           cnn_state = CONV3 or cnn_state = CONV4 or
+                                           cnn_state = CONV5) else
+                   linear_weight_addr;
+
+    bias_addr <= conv_bias_addr when (cnn_state = CONV1 or cnn_state = CONV2 or
+                                       cnn_state = CONV3 or cnn_state = CONV4 or
+                                       cnn_state = CONV5) else
+                 linear_bias_addr;
+
+    -- CONV0 Weight ROM (Conv1: 1→8, k3)
     conv0_weight_rom : weight_rom
         generic map (
             DATA_WIDTH => 16,
-            ADDR_WIDTH => 5,  -- 24 weights = 1×8×3
+            ADDR_WIDTH => 14,  -- Use full 14-bit addressing for all ROMs
             INIT_FILE => "weights/conv0_weight.mif"
         )
         port map (
@@ -481,7 +498,7 @@ begin
     conv0_bias_rom : weight_rom
         generic map (
             DATA_WIDTH => 16,
-            ADDR_WIDTH => 3,  -- 8 biases
+            ADDR_WIDTH => 14,  -- Use full 14-bit addressing for all ROMs
             INIT_FILE => "weights/conv0_bias.mif"
         )
         port map (
