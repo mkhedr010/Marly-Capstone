@@ -18,18 +18,27 @@ entity cnn_interface is
     port (
         clk             : in  std_logic;
         reset_n         : in  std_logic;
-        
+
         -- From UART receiver / system
         ecg_sample_in   : in  std_logic_vector(11 downto 0);
         sample_valid_in : in  std_logic;
-        
+
         -- To CNN module (for debugging/monitoring)
         cnn_sample      : out std_logic_vector(11 downto 0);
         cnn_valid       : out std_logic;
 
         -- From CNN module (now generated internally)
         cnn_result      : out std_logic_vector(1 downto 0);
-        cnn_result_valid: out std_logic
+        cnn_result_valid: out std_logic;
+
+        -- SDRAM interface (pass-through to zolotyhnet)
+        sdram_addr      : out std_logic_vector(22 downto 0);
+        sdram_data_in   : in  std_logic_vector(15 downto 0);
+        sdram_data_out  : out std_logic_vector(15 downto 0);
+        sdram_read_req  : out std_logic;
+        sdram_write_req : out std_logic;
+        sdram_data_valid: in  std_logic;
+        sdram_busy      : in  std_logic
     );
 end cnn_interface;
 
@@ -43,7 +52,14 @@ architecture Behavioral of cnn_interface is
             ecg_sample      : in  std_logic_vector(11 downto 0);
             sample_valid    : in  std_logic;
             class_result    : out std_logic_vector(2 downto 0);
-            result_valid    : out std_logic
+            result_valid    : out std_logic;
+            sdram_addr      : out std_logic_vector(22 downto 0);
+            sdram_data_in   : in  std_logic_vector(15 downto 0);
+            sdram_data_out  : out std_logic_vector(15 downto 0);
+            sdram_read_req  : out std_logic;
+            sdram_write_req : out std_logic;
+            sdram_data_valid: in  std_logic;
+            sdram_busy      : in  std_logic
         );
     end component;
 
@@ -63,7 +79,14 @@ begin
             ecg_sample   => ecg_sample_in,
             sample_valid => sample_valid_in,
             class_result => class_result_int,
-            result_valid => result_valid_int
+            result_valid => result_valid_int,
+            sdram_addr      => sdram_addr,
+            sdram_data_in   => sdram_data_in,
+            sdram_data_out  => sdram_data_out,
+            sdram_read_req  => sdram_read_req,
+            sdram_write_req => sdram_write_req,
+            sdram_data_valid => sdram_data_valid,
+            sdram_busy => sdram_busy
         );
 
     --------------------------------------------------------------------------------

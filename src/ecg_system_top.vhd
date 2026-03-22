@@ -145,7 +145,14 @@ architecture Behavioral of ecg_system_top is
             cnn_sample      : out std_logic_vector(11 downto 0);
             cnn_valid       : out std_logic;
             cnn_result      : out std_logic_vector(1 downto 0);
-            cnn_result_valid: out std_logic
+            cnn_result_valid: out std_logic;
+            sdram_addr      : out std_logic_vector(22 downto 0);
+            sdram_data_in   : in  std_logic_vector(15 downto 0);
+            sdram_data_out  : out std_logic_vector(15 downto 0);
+            sdram_read_req  : out std_logic;
+            sdram_write_req : out std_logic;
+            sdram_data_valid: in  std_logic;
+            sdram_busy      : in  std_logic
         );
     end component;
 
@@ -330,14 +337,21 @@ begin
     -- CNN Interface: Connects to Ayoub's CNN module
     cnn_if_inst : cnn_interface
         port map (
-            clk              => clk_50mhz,
+            clk              => clk_50mhz_pll,
             reset_n          => reset_n,
             ecg_sample_in    => ecg_sample_uart,
             sample_valid_in  => sample_valid_uart,
             cnn_sample       => cnn_sample_int,
             cnn_valid        => cnn_valid_int,
             cnn_result       => cnn_result_int,
-            cnn_result_valid => cnn_result_valid_int
+            cnn_result_valid => cnn_result_valid_int,
+            sdram_addr       => sdram_addr_int,
+            sdram_data_in    => sdram_data_out_int,
+            sdram_data_out   => sdram_data_in_int,
+            sdram_read_req   => sdram_read_req_int,
+            sdram_write_req  => sdram_write_req_int,
+            sdram_data_valid => sdram_data_valid_int,
+            sdram_busy       => sdram_busy_int
         );
     
 end Behavioral;
