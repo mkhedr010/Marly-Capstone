@@ -348,11 +348,11 @@ begin
 
                 when CONV1 =>
                     -- Conv1d(1→8, k3, len=128) - connects to conv0_weight.mif
-                    -- Simulate with delay counter
                     layer_counter <= layer_counter + 1;
                     if layer_counter > 5000 or conv_done = '1' then
                         cnn_state <= CONV2;
                         layer_counter <= 0;
+                        conv_start <= '1';  -- Start next conv layer
                     end if;
 
                 when CONV2 =>
@@ -361,6 +361,7 @@ begin
                     if layer_counter > 3000 or conv_done = '1' then
                         cnn_state <= CONV3;
                         layer_counter <= 0;
+                        conv_start <= '1';  -- Start next conv layer
                     end if;
 
                 when CONV3 =>
@@ -369,6 +370,7 @@ begin
                     if layer_counter > 2000 or conv_done = '1' then
                         cnn_state <= CONV4;
                         layer_counter <= 0;
+                        conv_start <= '1';  -- Start next conv layer
                     end if;
 
                 when CONV4 =>
@@ -377,6 +379,7 @@ begin
                     if layer_counter > 1000 or conv_done = '1' then
                         cnn_state <= CONV5;
                         layer_counter <= 0;
+                        conv_start <= '1';  -- Start next conv layer
                     end if;
 
                 when CONV5 =>
@@ -386,6 +389,7 @@ begin
                         upper_output <= (others => conv_output_data);
                         cnn_state <= LINEAR1;
                         layer_counter <= 0;
+                        linear_start <= '1';  -- Start first linear layer
                     end if;
 
                 --------------------------------------------------------------------------------
@@ -398,6 +402,7 @@ begin
                     if layer_counter > 8000 or linear_done = '1' then
                         cnn_state <= LINEAR2;
                         layer_counter <= 0;
+                        linear_start <= '1';  -- Start next linear layer
                     end if;
 
                 when LINEAR2 =>
@@ -406,6 +411,7 @@ begin
                     if layer_counter > 1000 or linear_done = '1' then
                         cnn_state <= LINEAR3;
                         layer_counter <= 0;
+                        linear_start <= '1';  -- Start next linear layer
                     end if;
 
                 when LINEAR3 =>

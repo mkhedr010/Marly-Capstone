@@ -43,7 +43,8 @@ entity user_interface_controller is
         system_enable   : out std_logic;   -- System pause control
         
         -- LED outputs
-        led             : out std_logic_vector(3 downto 0)
+        led             : out std_logic_vector(3 downto 0);  -- Red LEDs
+        ledg            : out std_logic_vector(7 downto 0)   -- Green LEDs for classification
     );
 end user_interface_controller;
 
@@ -64,7 +65,9 @@ architecture Behavioral of user_interface_controller is
     
     -- LED signals
     signal led_int       : std_logic_vector(3 downto 0) := (others => '0');
+    signal ledg_int      : std_logic_vector(7 downto 0) := (others => '0');
     signal led3_counter  : integer range 0 to 50_000_000 := 0;  -- Counter to keep LED3 ON
+    signal ledg_counter  : integer range 0 to 100_000_000 := 0;  -- Counter for green LED display (2 sec max)
     
 begin
     
@@ -141,33 +144,49 @@ begin
             -- LED[2]: System paused (DEBUG: show if paused OR if uart not active for debug)
             led_int(2) <= paused;
             
-            -- LED[3]: CNN classification result
-            -- cnn_result encoding: 00=Normal, 01=PVC, 10=AFib, 11=Other
-            -- LED behavior: OFF=Normal, Solid ON=Abnormal
+            -- LED[3]: CNN processing indicator (toggles when CNN runs)
             if cnn_valid = '1' then
-                -- Latch result when CNN outputs
-                case cnn_result is
-                    when "00" =>  -- Normal
-                        led_int(3) <= '0';
-                    when "01" | "10" | "11" =>  -- Any abnormal (PVC, AFib, Other)
-                        led_int(3) <= '1';
-                        led3_counter <= CLK_FREQ;  -- Stay ON for 1 second (visible)
-                    when others =>
-                        led_int(3) <= '0';
-                end case;
+                led_int(3) <= '1';
+                led3_counter <= CLK_FREQ / 5;  -- Pulse for 0.2 sec
             elsif led3_counter > 0 then
-                -- Count down to turn OFF
                 led3_counter <= led3_counter - 1;
                 led_int(3) <= '1';
             else
                 led_int(3) <= '0';
             end if;
-            
+
+            -- GREEN LEDs: Classification Results
+            -- LEDG7=Normal, LEDG6=LBBB, LEDG5=PVC
+            -- Display for 2 seconds after each classification
+            if cnn_valid = '1' then
+                ledg_int <= (others => '0');  -- Clear all
+
+                -- Map cnn_result to green LEDs
+                case cnn_result is
+                    when "00" =>  -- Normal
+                        ledg_int(7) <= '1';
+                    when "01" =>  -- PVC or other abnormal
+                        ledg_int(5) <= '1';
+                    when "10" =>  -- LBBB or AFib
+                        ledg_int(6) <= '1';
+                    when others =>
+                        null;
+                end case;
+
+                ledg_counter <= CLK_FREQ * 2;  -- Display for 2 seconds
+            elsif ledg_counter > 0 then
+                ledg_counter <= ledg_counter - 1;
+                -- Keep LEDs ON
+            else
+                ledg_int <= (others => '0');
+            end if;
+
         end if;
     end process;
-    
+
     -- Output assignments
     system_enable <= system_enable_int;
     led <= led_int;
-    
+    ledg <= ledg_int;
+
 end Behavioral;

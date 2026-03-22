@@ -36,7 +36,8 @@ entity ecg_system_top is
         
         -- User Interface
         btn          : in  std_logic_vector(0 downto 0);  -- Pause button
-        led          : out std_logic_vector(3 downto 0);  -- Status LEDs
+        led          : out std_logic_vector(3 downto 0);  -- Status LEDs (red)
+        ledg         : out std_logic_vector(7 downto 0);  -- Classification LEDs (green)
         
         -- VGA Output
         vga_hsync    : out std_logic;
@@ -118,7 +119,8 @@ architecture Behavioral of ecg_system_top is
             cnn_result      : in  std_logic_vector(1 downto 0);
             cnn_valid       : in  std_logic;
             system_enable   : out std_logic;
-            led             : out std_logic_vector(3 downto 0)
+            led             : out std_logic_vector(3 downto 0);
+            ledg            : out std_logic_vector(7 downto 0)
         );
     end component;
     
@@ -231,7 +233,8 @@ begin
             cnn_result    => cnn_result_int,
             cnn_valid     => cnn_result_valid_int,
             system_enable => system_enable_int,
-            led           => led
+            led           => led,
+            ledg          => ledg
         );
     
     -- CNN Interface: Connects to Ayoub's CNN module
