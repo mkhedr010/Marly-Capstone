@@ -21,15 +21,16 @@ set_location_assignment PIN_W16 -to led[1]
 set_location_assignment PIN_V17 -to led[2]
 set_location_assignment PIN_V18 -to led[3]
 
-# Green User LEDs LED[7:0] for classification results
-set_location_assignment PIN_W20 -to ledg[0]
-set_location_assignment PIN_Y19 -to ledg[1]
-set_location_assignment PIN_W19 -to ledg[2]
-set_location_assignment PIN_W17 -to ledg[3]
-set_location_assignment PIN_V19 -to ledg[4]
-set_location_assignment PIN_V20 -to ledg[5]
-set_location_assignment PIN_V21 -to ledg[6]
-set_location_assignment PIN_W21 -to ledg[7]
+# Green User LEDs LED[7:0] for classification results (DE1-SoC doesn't have LEDG!)
+# Using LEDR[9:4] for classification instead
+set_location_assignment PIN_Y16 -to ledg[0]  # LEDR[4]
+set_location_assignment PIN_W15 -to ledg[1]  # LEDR[5]
+set_location_assignment PIN_AA24 -to ledg[2]  # LEDR[6]
+set_location_assignment PIN_V15 -to ledg[3]  # LEDR[7]
+set_location_assignment PIN_AA25 -to ledg[4]  # LEDR[8]
+set_location_assignment PIN_AA26 -to ledg[5]  # LEDR[9]
+set_location_assignment PIN_Y16 -to ledg[6]  # Duplicate for now
+set_location_assignment PIN_Y16 -to ledg[7]  # Duplicate for now
 
 # VGA Sync
 set_location_assignment PIN_B13 -to vga_hsync

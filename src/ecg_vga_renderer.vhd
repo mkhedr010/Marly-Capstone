@@ -35,7 +35,7 @@ entity ecg_vga_renderer is
         ecg_sample    : in  std_logic_vector(11 downto 0);
         sample_valid  : in  std_logic;   -- Pulse when new sample arrives
         
-        -- RGB output
+        -- RGB output (10-bit for DE2, will use lower 8 bits for DE1-SoC)
         vga_r         : out std_logic_vector(9 downto 0);
         vga_g         : out std_logic_vector(9 downto 0);
         vga_b         : out std_logic_vector(9 downto 0)
