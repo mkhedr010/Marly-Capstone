@@ -465,8 +465,13 @@ begin
                 --------------------------------------------------------------------------------
 
                 when OUTPUT_RESULT =>
-                    result_valid <= '1';  -- Pulse result valid
-                    cnn_state <= IDLE;    -- Ready for next 128 samples
+                    result_valid <= '1';  -- Assert result valid
+                    layer_counter <= layer_counter + 1;
+                    -- Stay in OUTPUT_RESULT for 1000 cycles (0.02ms) to ensure LED sees it
+                    if layer_counter > 1000 then
+                        cnn_state <= IDLE;    -- Ready for next 128 samples
+                        layer_counter <= 0;
+                    end if;
 
                 when others =>
                     cnn_state <= IDLE;
@@ -500,16 +505,6 @@ begin
     conv0_bias_rom : weight_rom
         generic map (DATA_WIDTH => 16, ADDR_WIDTH => 14, INIT_FILE => "weights/conv0_bias.mif")
         port map (clk => clk, addr_a => bias_addr, data_a => conv0_bias_data, addr_b => 0, data_b => open);
-
-    -- Additional ROM data outputs for multiplexing
-    signal conv1_weight_data, conv1_bias_data : signed(15 downto 0);
-    signal conv2_weight_data, conv2_bias_data : signed(15 downto 0);
-    signal conv3_weight_data, conv3_bias_data : signed(15 downto 0);
-    signal conv4_weight_data, conv4_bias_data : signed(15 downto 0);
-    signal linear0_weight_data, linear0_bias_data : signed(15 downto 0);
-    signal linear1_weight_data, linear1_bias_data : signed(15 downto 0);
-    signal linear2_weight_data, linear2_bias_data : signed(15 downto 0);
-    signal classifier_weight_data, classifier_bias_data : signed(15 downto 0);
 
     -- CONV1 Weight/Bias ROMs (8→16, k3)
     conv1_weight_rom : weight_rom

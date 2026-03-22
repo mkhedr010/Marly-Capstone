@@ -64,6 +64,7 @@ architecture Behavioral of user_interface_controller is
     
     -- LED signals
     signal led_int       : std_logic_vector(3 downto 0) := (others => '0');
+    signal led3_counter  : integer range 0 to 50_000_000 := 0;  -- Counter to keep LED3 ON
     
 begin
     
@@ -137,19 +138,20 @@ begin
             -- LED[1]: VGA active (always on when system running)
             led_int(1) <= system_enable_int;
             
-            -- LED[2]: System paused
+            -- LED[2]: System paused (DEBUG: show if paused OR if uart not active for debug)
             led_int(2) <= paused;
             
             -- LED[3]: CNN processing indicator
-            -- TOGGLE on each CNN result to show processing is happening
+            -- Latch ON for 0.2 seconds when CNN outputs result (visible blink)
             if cnn_valid = '1' then
-                led_int(3) <= not led_int(3);  -- Toggle to make visible
+                led_int(3) <= '1';
+                led3_counter <= CLK_FREQ / 5;  -- Stay ON for 0.2 seconds
+            elsif led3_counter > 0 then
+                led3_counter <= led3_counter - 1;
+                led_int(3) <= '1';  -- Keep ON while counter running
+            else
+                led_int(3) <= '0';  -- Turn OFF when counter expires
             end if;
-
-            -- For final version with real classification:
-            -- if cnn_valid = '1' then
-            --     led_int(3) <= '1' when cnn_result /= "00" else '0';
-            -- end if;
             
         end if;
     end process;
