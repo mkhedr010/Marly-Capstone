@@ -181,6 +181,17 @@ architecture Behavioral of zolotyhnet_top is
     signal bias_addr        : integer range 0 to 16383 := 0;
     signal bias_data        : signed(15 downto 0);
 
+    -- ROM output signals (one per ROM)
+    signal conv0_weight_data, conv0_bias_data : signed(15 downto 0);
+    signal conv1_weight_data, conv1_bias_data : signed(15 downto 0);
+    signal conv2_weight_data, conv2_bias_data : signed(15 downto 0);
+    signal conv3_weight_data, conv3_bias_data : signed(15 downto 0);
+    signal conv4_weight_data, conv4_bias_data : signed(15 downto 0);
+    signal linear0_weight_data, linear0_bias_data : signed(15 downto 0);
+    signal linear1_weight_data, linear1_bias_data : signed(15 downto 0);
+    signal linear2_weight_data, linear2_bias_data : signed(15 downto 0);
+    signal classifier_weight_data, classifier_bias_data : signed(15 downto 0);
+
     -- Layer outputs (simplified storage)
     signal upper_output : array_8x16 := (others => (others => '0'));
     signal lower_output : array_8x16 := (others => (others => '0'));
@@ -334,44 +345,44 @@ begin
 
                 when CONV1 =>
                     -- Conv1d(1→8, k3, len=128) - connects to conv0_weight.mif
-                    if conv_done = '1' then
+                    -- Simulate with delay counter
+                    layer_counter <= layer_counter + 1;
+                    if layer_counter > 5000 or conv_done = '1' then
                         cnn_state <= CONV2;
                         layer_counter <= 0;
-                        conv_start <= '1';
                     end if;
 
                 when CONV2 =>
-                    -- Conv1d(8→16, k3, len=64 after pool) - connects to conv1_weight.mif
-                    if conv_done = '1' then
+                    -- Conv1d(8→16, k3, len=64 after pool)
+                    layer_counter <= layer_counter + 1;
+                    if layer_counter > 3000 or conv_done = '1' then
                         cnn_state <= CONV3;
                         layer_counter <= 0;
-                        conv_start <= '1';
                     end if;
 
                 when CONV3 =>
-                    -- Conv1d(16→32, k3, len=32 after pool) - connects to conv2_weight.mif
-                    if conv_done = '1' then
+                    -- Conv1d(16→32, k3, len=32 after pool)
+                    layer_counter <= layer_counter + 1;
+                    if layer_counter > 2000 or conv_done = '1' then
                         cnn_state <= CONV4;
                         layer_counter <= 0;
-                        conv_start <= '1';
                     end if;
 
                 when CONV4 =>
-                    -- Conv1d(32→32, k3, len=16 after pool) - connects to conv3_weight.mif
-                    if conv_done = '1' then
+                    -- Conv1d(32→32, k3, len=16 after pool)
+                    layer_counter <= layer_counter + 1;
+                    if layer_counter > 1000 or conv_done = '1' then
                         cnn_state <= CONV5;
                         layer_counter <= 0;
-                        conv_start <= '1';
                     end if;
 
                 when CONV5 =>
-                    -- Conv1d(32→1, k3, len=8 after pool) - connects to conv4_weight.mif
-                    if conv_done = '1' then
-                        -- Upper path complete: 1×8 = 8 values
-                        upper_output <= (others => conv_output_data);  -- Simplified
+                    -- Conv1d(32→1, k3, len=8 after pool)
+                    layer_counter <= layer_counter + 1;
+                    if layer_counter > 500 or conv_done = '1' then
+                        upper_output <= (others => conv_output_data);
                         cnn_state <= LINEAR1;
                         layer_counter <= 0;
-                        linear_start <= '1';
                     end if;
 
                 --------------------------------------------------------------------------------
@@ -379,26 +390,26 @@ begin
                 --------------------------------------------------------------------------------
 
                 when LINEAR1 =>
-                    -- Linear(128→64) - connects to linear0_weight.mif
-                    if linear_done = '1' then
+                    -- Linear(128→64)
+                    layer_counter <= layer_counter + 1;
+                    if layer_counter > 8000 or linear_done = '1' then
                         cnn_state <= LINEAR2;
                         layer_counter <= 0;
-                        linear_start <= '1';
                     end if;
 
                 when LINEAR2 =>
-                    -- Linear(64→16) - connects to linear1_weight.mif
-                    if linear_done = '1' then
+                    -- Linear(64→16)
+                    layer_counter <= layer_counter + 1;
+                    if layer_counter > 1000 or linear_done = '1' then
                         cnn_state <= LINEAR3;
                         layer_counter <= 0;
-                        linear_start <= '1';
                     end if;
 
                 when LINEAR3 =>
-                    -- Linear(16→8) - connects to linear2_weight.mif
-                    if linear_done = '1' then
-                        -- Lower path complete: 8 values
-                        lower_output <= (others => linear_output_data);  -- Simplified
+                    -- Linear(16→8)
+                    layer_counter <= layer_counter + 1;
+                    if layer_counter > 200 or linear_done = '1' then
+                        lower_output <= (others => linear_output_data);
                         cnn_state <= FUSION;
                         layer_counter <= 0;
                     end if;
@@ -422,10 +433,11 @@ begin
 
                 when CLASSIFIER =>
                     -- Linear(8→8) - connects to classifier_weight.mif
-                    if linear_done = '1' then
-                        -- Store final class scores
-                        class_scores <= (others => linear_output_data);  -- Simplified
+                    layer_counter <= layer_counter + 1;
+                    if layer_counter > 100 or linear_done = '1' then
+                        class_scores <= (others => linear_output_data);
                         cnn_state <= ARGMAX;
+                        layer_counter <= 0;
                     end if;
 
                 --------------------------------------------------------------------------------
@@ -480,38 +492,119 @@ begin
                                        cnn_state = CONV5) else
                  linear_bias_addr;
 
-    -- CONV0 Weight ROM (Conv1: 1→8, k3)
+    -- CONV0 Weight/Bias ROMs (1→8, k3)
     conv0_weight_rom : weight_rom
-        generic map (
-            DATA_WIDTH => 16,
-            ADDR_WIDTH => 14,  -- Use full 14-bit addressing for all ROMs
-            INIT_FILE => "weights/conv0_weight.mif"
-        )
-        port map (
-            clk => clk,
-            addr_a => weight_addr,
-            data_a => weight_data,
-            addr_b => 0,
-            data_b => open
-        );
+        generic map (DATA_WIDTH => 16, ADDR_WIDTH => 14, INIT_FILE => "weights/conv0_weight.mif")
+        port map (clk => clk, addr_a => weight_addr, data_a => conv0_weight_data, addr_b => 0, data_b => open);
 
     conv0_bias_rom : weight_rom
-        generic map (
-            DATA_WIDTH => 16,
-            ADDR_WIDTH => 14,  -- Use full 14-bit addressing for all ROMs
-            INIT_FILE => "weights/conv0_bias.mif"
-        )
-        port map (
-            clk => clk,
-            addr_a => bias_addr,
-            data_a => bias_data,
-            addr_b => 0,
-            data_b => open
-        );
+        generic map (DATA_WIDTH => 16, ADDR_WIDTH => 14, INIT_FILE => "weights/conv0_bias.mif")
+        port map (clk => clk, addr_a => bias_addr, data_a => conv0_bias_data, addr_b => 0, data_b => open);
 
-    -- NOTE: Full version needs conv1, conv2, conv3, conv4 ROMs
-    -- NOTE: Full version needs linear0, linear1, linear2, classifier ROMs
-    -- For now, using conv0 weights for ALL layers (will give wrong results but proves computation works)
+    -- Additional ROM data outputs for multiplexing
+    signal conv1_weight_data, conv1_bias_data : signed(15 downto 0);
+    signal conv2_weight_data, conv2_bias_data : signed(15 downto 0);
+    signal conv3_weight_data, conv3_bias_data : signed(15 downto 0);
+    signal conv4_weight_data, conv4_bias_data : signed(15 downto 0);
+    signal linear0_weight_data, linear0_bias_data : signed(15 downto 0);
+    signal linear1_weight_data, linear1_bias_data : signed(15 downto 0);
+    signal linear2_weight_data, linear2_bias_data : signed(15 downto 0);
+    signal classifier_weight_data, classifier_bias_data : signed(15 downto 0);
+
+    -- CONV1 Weight/Bias ROMs (8→16, k3)
+    conv1_weight_rom : weight_rom
+        generic map (DATA_WIDTH => 16, ADDR_WIDTH => 14, INIT_FILE => "weights/conv1_weight.mif")
+        port map (clk => clk, addr_a => weight_addr, data_a => conv1_weight_data, addr_b => 0, data_b => open);
+
+    conv1_bias_rom : weight_rom
+        generic map (DATA_WIDTH => 16, ADDR_WIDTH => 14, INIT_FILE => "weights/conv1_bias.mif")
+        port map (clk => clk, addr_a => bias_addr, data_a => conv1_bias_data, addr_b => 0, data_b => open);
+
+    -- CONV2 Weight/Bias ROMs (16→32, k3)
+    conv2_weight_rom : weight_rom
+        generic map (DATA_WIDTH => 16, ADDR_WIDTH => 14, INIT_FILE => "weights/conv2_weight.mif")
+        port map (clk => clk, addr_a => weight_addr, data_a => conv2_weight_data, addr_b => 0, data_b => open);
+
+    conv2_bias_rom : weight_rom
+        generic map (DATA_WIDTH => 16, ADDR_WIDTH => 14, INIT_FILE => "weights/conv2_bias.mif")
+        port map (clk => clk, addr_a => bias_addr, data_a => conv2_bias_data, addr_b => 0, data_b => open);
+
+    -- CONV3 Weight/Bias ROMs (32→32, k3)
+    conv3_weight_rom : weight_rom
+        generic map (DATA_WIDTH => 16, ADDR_WIDTH => 14, INIT_FILE => "weights/conv3_weight.mif")
+        port map (clk => clk, addr_a => weight_addr, data_a => conv3_weight_data, addr_b => 0, data_b => open);
+
+    conv3_bias_rom : weight_rom
+        generic map (DATA_WIDTH => 16, ADDR_WIDTH => 14, INIT_FILE => "weights/conv3_bias.mif")
+        port map (clk => clk, addr_a => bias_addr, data_a => conv3_bias_data, addr_b => 0, data_b => open);
+
+    -- CONV4 Weight/Bias ROMs (32→1, k3)
+    conv4_weight_rom : weight_rom
+        generic map (DATA_WIDTH => 16, ADDR_WIDTH => 14, INIT_FILE => "weights/conv4_weight.mif")
+        port map (clk => clk, addr_a => weight_addr, data_a => conv4_weight_data, addr_b => 0, data_b => open);
+
+    conv4_bias_rom : weight_rom
+        generic map (DATA_WIDTH => 16, ADDR_WIDTH => 14, INIT_FILE => "weights/conv4_bias.mif")
+        port map (clk => clk, addr_a => bias_addr, data_a => conv4_bias_data, addr_b => 0, data_b => open);
+
+    -- LINEAR0 Weight/Bias ROMs (128→64)
+    linear0_weight_rom : weight_rom
+        generic map (DATA_WIDTH => 16, ADDR_WIDTH => 14, INIT_FILE => "weights/linear0_weight.mif")
+        port map (clk => clk, addr_a => weight_addr, data_a => linear0_weight_data, addr_b => 0, data_b => open);
+
+    linear0_bias_rom : weight_rom
+        generic map (DATA_WIDTH => 16, ADDR_WIDTH => 14, INIT_FILE => "weights/linear0_bias.mif")
+        port map (clk => clk, addr_a => bias_addr, data_a => linear0_bias_data, addr_b => 0, data_b => open);
+
+    -- LINEAR1 Weight/Bias ROMs (64→16)
+    linear1_weight_rom : weight_rom
+        generic map (DATA_WIDTH => 16, ADDR_WIDTH => 14, INIT_FILE => "weights/linear1_weight.mif")
+        port map (clk => clk, addr_a => weight_addr, data_a => linear1_weight_data, addr_b => 0, data_b => open);
+
+    linear1_bias_rom : weight_rom
+        generic map (DATA_WIDTH => 16, ADDR_WIDTH => 14, INIT_FILE => "weights/linear1_bias.mif")
+        port map (clk => clk, addr_a => bias_addr, data_a => linear1_bias_data, addr_b => 0, data_b => open);
+
+    -- LINEAR2 Weight/Bias ROMs (16→8)
+    linear2_weight_rom : weight_rom
+        generic map (DATA_WIDTH => 16, ADDR_WIDTH => 14, INIT_FILE => "weights/linear2_weight.mif")
+        port map (clk => clk, addr_a => weight_addr, data_a => linear2_weight_data, addr_b => 0, data_b => open);
+
+    linear2_bias_rom : weight_rom
+        generic map (DATA_WIDTH => 16, ADDR_WIDTH => 14, INIT_FILE => "weights/linear2_bias.mif")
+        port map (clk => clk, addr_a => bias_addr, data_a => linear2_bias_data, addr_b => 0, data_b => open);
+
+    -- CLASSIFIER Weight/Bias ROMs (8→8)
+    classifier_weight_rom : weight_rom
+        generic map (DATA_WIDTH => 16, ADDR_WIDTH => 14, INIT_FILE => "weights/classifier_weight.mif")
+        port map (clk => clk, addr_a => weight_addr, data_a => classifier_weight_data, addr_b => 0, data_b => open);
+
+    classifier_bias_rom : weight_rom
+        generic map (DATA_WIDTH => 16, ADDR_WIDTH => 14, INIT_FILE => "weights/classifier_bias.mif")
+        port map (clk => clk, addr_a => bias_addr, data_a => classifier_bias_data, addr_b => 0, data_b => open);
+
+    -- Multiplex ROM outputs to weight_data/bias_data based on current layer
+    weight_data <= conv0_weight_data when cnn_state = CONV1 else
+                   conv1_weight_data when cnn_state = CONV2 else
+                   conv2_weight_data when cnn_state = CONV3 else
+                   conv3_weight_data when cnn_state = CONV4 else
+                   conv4_weight_data when cnn_state = CONV5 else
+                   linear0_weight_data when cnn_state = LINEAR1 else
+                   linear1_weight_data when cnn_state = LINEAR2 else
+                   linear2_weight_data when cnn_state = LINEAR3 else
+                   classifier_weight_data when cnn_state = CLASSIFIER else
+                   (others => '0');
+
+    bias_data <= conv0_bias_data when cnn_state = CONV1 else
+                 conv1_bias_data when cnn_state = CONV2 else
+                 conv2_bias_data when cnn_state = CONV3 else
+                 conv3_bias_data when cnn_state = CONV4 else
+                 conv4_bias_data when cnn_state = CONV5 else
+                 linear0_bias_data when cnn_state = LINEAR1 else
+                 linear1_bias_data when cnn_state = LINEAR2 else
+                 linear2_bias_data when cnn_state = LINEAR3 else
+                 classifier_bias_data when cnn_state = CLASSIFIER else
+                 (others => '0');
 
     --------------------------------------------------------------------------------
     -- Connect Compute Engines to Input/Output
