@@ -44,7 +44,19 @@ entity ecg_system_top is
         vga_vsync    : out std_logic;
         vga_r        : out std_logic_vector(9 downto 0);
         vga_g        : out std_logic_vector(9 downto 0);
-        vga_b        : out std_logic_vector(9 downto 0)
+        vga_b        : out std_logic_vector(9 downto 0);
+
+        -- SDRAM Interface
+        sdram_addr   : out std_logic_vector(11 downto 0);
+        sdram_ba     : out std_logic_vector(1 downto 0);
+        sdram_dq     : inout std_logic_vector(15 downto 0);
+        sdram_clk    : out std_logic;
+        sdram_cke    : out std_logic;
+        sdram_cs_n   : out std_logic;
+        sdram_ras_n  : out std_logic;
+        sdram_cas_n  : out std_logic;
+        sdram_we_n   : out std_logic;
+        sdram_dqm    : out std_logic_vector(1 downto 0)
     );
 end ecg_system_top;
 
@@ -136,11 +148,46 @@ architecture Behavioral of ecg_system_top is
             cnn_result_valid: out std_logic
         );
     end component;
+
+    component pll_100mhz
+        port (
+            inclk0 : in  std_logic;
+            c0     : out std_logic;  -- 100 MHz
+            c1     : out std_logic   -- 50 MHz
+        );
+    end component;
+
+    component sdram_controller
+        port (
+            clk             : in  std_logic;
+            reset_n         : in  std_logic;
+            addr            : in  std_logic_vector(22 downto 0);
+            data_in         : in  std_logic_vector(15 downto 0);
+            data_out        : out std_logic_vector(15 downto 0);
+            read_req        : in  std_logic;
+            write_req       : in  std_logic;
+            data_valid      : out std_logic;
+            busy            : out std_logic;
+            init_done       : out std_logic;
+            sdram_addr      : out std_logic_vector(11 downto 0);
+            sdram_ba        : out std_logic_vector(1 downto 0);
+            sdram_dq        : inout std_logic_vector(15 downto 0);
+            sdram_clk       : out std_logic;
+            sdram_cke       : out std_logic;
+            sdram_cs_n      : out std_logic;
+            sdram_ras_n     : out std_logic;
+            sdram_cas_n     : out std_logic;
+            sdram_we_n      : out std_logic;
+            sdram_dqm       : out std_logic_vector(1 downto 0)
+        );
+    end component;
     
     -- Internal signals
-    
+
     -- Clock signals
     signal clk_25mhz : std_logic;
+    signal clk_100mhz : std_logic;  -- For SDRAM
+    signal clk_50mhz_pll : std_logic;  -- From PLL (phase-aligned)
     
     -- UART signals
     signal ecg_sample_uart   : std_logic_vector(11 downto 0);
@@ -161,15 +208,58 @@ architecture Behavioral of ecg_system_top is
     signal cnn_valid_int       : std_logic;
     signal cnn_result_int      : std_logic_vector(1 downto 0);
     signal cnn_result_valid_int: std_logic;
-    
+
+    -- SDRAM signals
+    signal sdram_addr_int      : std_logic_vector(22 downto 0);
+    signal sdram_data_in_int   : std_logic_vector(15 downto 0);
+    signal sdram_data_out_int  : std_logic_vector(15 downto 0);
+    signal sdram_read_req_int  : std_logic;
+    signal sdram_write_req_int : std_logic;
+    signal sdram_data_valid_int: std_logic;
+    signal sdram_busy_int      : std_logic;
+    signal sdram_init_done_int : std_logic;
+
 begin
     
+    -- PLL: 50 MHz → 100 MHz (SDRAM) and 50 MHz (system)
+    pll_inst : pll_100mhz
+        port map (
+            inclk0 => clk_50mhz,
+            c0     => clk_100mhz,      -- 100 MHz for SDRAM
+            c1     => clk_50mhz_pll    -- 50 MHz phase-aligned
+        );
+
     -- Clock Divider: 50 MHz → 25 MHz for VGA
     clk_div_inst : clk_divider
         port map (
-            clk_in  => clk_50mhz,
+            clk_in  => clk_50mhz_pll,  -- Use PLL output for clean clock
             reset_n => reset_n,
             clk_out => clk_25mhz
+        );
+
+    -- SDRAM Controller
+    sdram_ctrl_inst : sdram_controller
+        port map (
+            clk        => clk_100mhz,
+            reset_n    => reset_n,
+            addr       => sdram_addr_int,
+            data_in    => sdram_data_in_int,
+            data_out   => sdram_data_out_int,
+            read_req   => sdram_read_req_int,
+            write_req  => sdram_write_req_int,
+            data_valid => sdram_data_valid_int,
+            busy       => sdram_busy_int,
+            init_done  => sdram_init_done_int,
+            sdram_addr => sdram_addr,
+            sdram_ba   => sdram_ba,
+            sdram_dq   => sdram_dq,
+            sdram_clk  => sdram_clk,
+            sdram_cke  => sdram_cke,
+            sdram_cs_n => sdram_cs_n,
+            sdram_ras_n => sdram_ras_n,
+            sdram_cas_n => sdram_cas_n,
+            sdram_we_n  => sdram_we_n,
+            sdram_dqm   => sdram_dqm
         );
     
     -- UART Receiver: Receives ECG samples from PC

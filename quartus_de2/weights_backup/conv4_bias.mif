@@ -1,0 +1,9 @@
+-- conv4_bias
+-- Original shape: (1,)
+DEPTH = 1;
+WIDTH = 16;
+ADDRESS_RADIX = HEX;
+DATA_RADIX = HEX;
+CONTENT BEGIN
+  0000 : 001D;
+END;

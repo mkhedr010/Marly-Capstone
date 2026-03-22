@@ -1,0 +1,16 @@
+-- classifier_bias
+-- Original shape: (8,)
+DEPTH = 8;
+WIDTH = 16;
+ADDRESS_RADIX = HEX;
+DATA_RADIX = HEX;
+CONTENT BEGIN
+  0000 : FFF8;
+  0001 : FFC2;
+  0002 : FFFD;
+  0003 : FFEB;
+  0004 : FFDC;
+  0005 : FFCD;
+  0006 : 0025;
+  0007 : FFF1;
+END;
