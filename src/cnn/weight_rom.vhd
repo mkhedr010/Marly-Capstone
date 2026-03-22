@@ -41,12 +41,9 @@ architecture Behavioral of weight_rom is
     -- Initialize ROM (will be replaced with .mif file in Quartus synthesis)
     signal rom_data : rom_type := (others => (others => '0'));
 
-    -- Quartus attributes for proper ROM inference
+    -- Quartus attribute to specify initialization file
     attribute ram_init_file : string;
     attribute ram_init_file of rom_data : signal is INIT_FILE;
-
-    attribute ramstyle : string;
-    attribute ramstyle of rom_data : signal is "M4K";  -- Force block RAM usage
 
 begin
 
@@ -69,3 +66,6 @@ begin
     end process;
 
 end Behavioral;
+
+
+
