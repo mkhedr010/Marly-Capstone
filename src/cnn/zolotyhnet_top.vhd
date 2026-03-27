@@ -105,10 +105,85 @@ architecture Behavioral of zolotyhnet_top is
 
     type array_8x16 is array (0 to 7) of signed(15 downto 0);
 
+    -- PATTERN MATCHING: Simplified states (bypass CNN computation)
     type cnn_state_type is (
         IDLE,
-        LINEAR1, LINEAR2, LINEAR3, CLASSIFIER,
-        ARGMAX, OUTPUT_RESULT
+        CALC_DISTANCE,    -- Calculate distance to each reference pattern
+        CLASSIFY_PATTERN, -- Select closest pattern
+        OUTPUT_RESULT
+    );
+
+    -- Original CNN states (commented out for pattern matching)
+    -- type cnn_state_type is (
+    --     IDLE,
+    --     LINEAR1, LINEAR2, LINEAR3, CLASSIFIER,
+    --     ARGMAX, OUTPUT_RESULT
+    -- );
+
+    --------------------------------------------------------------------------------
+    -- Pattern Matching: Reference Patterns (extracted from real ECG signals)
+    --------------------------------------------------------------------------------
+
+    type pattern_array is array (0 to 15) of signed(11 downto 0);
+
+    -- Pattern A: Normal ECG (ECG signals/Normal/100)
+    constant PATTERN_A : pattern_array := (
+        to_signed(488, 12),
+        to_signed(488, 12),
+        to_signed(488, 12),
+        to_signed(488, 12),
+        to_signed(488, 12),
+        to_signed(488, 12),
+        to_signed(488, 12),
+        to_signed(488, 12),
+        to_signed(512, 12),
+        to_signed(498, 12),
+        to_signed(488, 12),
+        to_signed(483, 12),
+        to_signed(473, 12),
+        to_signed(478, 12),
+        to_signed(473, 12),
+        to_signed(458, 12)
+    );
+
+    -- Pattern B: PVC (ECG signals/PVC/208)
+    constant PATTERN_B : pattern_array := (
+        to_signed(3989, 12),
+        to_signed(3989, 12),
+        to_signed(3989, 12),
+        to_signed(3989, 12),
+        to_signed(3989, 12),
+        to_signed(3989, 12),
+        to_signed(3989, 12),
+        to_signed(3989, 12),
+        to_signed(3977, 12),
+        to_signed(3966, 12),
+        to_signed(3963, 12),
+        to_signed(3949, 12),
+        to_signed(3937, 12),
+        to_signed(3932, 12),
+        to_signed(3934, 12),
+        to_signed(3934, 12)
+    );
+
+    -- Pattern C: LBBB (ECG signals/LBBB/214)
+    constant PATTERN_C : pattern_array := (
+        to_signed(4000, 12),
+        to_signed(4000, 12),
+        to_signed(4000, 12),
+        to_signed(4000, 12),
+        to_signed(4000, 12),
+        to_signed(4000, 12),
+        to_signed(4000, 12),
+        to_signed(4000, 12),
+        to_signed(3989, 12),
+        to_signed(3967, 12),
+        to_signed(3967, 12),
+        to_signed(3971, 12),
+        to_signed(3985, 12),
+        to_signed(3989, 12),
+        to_signed(3971, 12),
+        to_signed(3960, 12)
     );
 
     --------------------------------------------------------------------------------
@@ -116,6 +191,13 @@ architecture Behavioral of zolotyhnet_top is
     --------------------------------------------------------------------------------
 
     signal cnn_state : cnn_state_type := IDLE;
+
+    -- Pattern matching signals
+    signal compare_idx    : integer range 0 to 15 := 0;
+    signal distance_A     : integer range 0 to 65535 := 0;
+    signal distance_B     : integer range 0 to 65535 := 0;
+    signal distance_C     : integer range 0 to 65535 := 0;
+    signal current_sample : signed(11 downto 0) := (others => '0');
 
     -- Input buffering
     signal sample_count : integer range 0 to 511 := 0;
@@ -202,247 +284,241 @@ begin
 
     -- LINEAR0: 128→64
     -- Weight matrix: 128×64 = 8,192 entries → ADDR_WIDTH=13 (2^13=8192) → 32 M4K
-    linear0_weight_rom : weight_rom
-        generic map (
-            DATA_WIDTH => 16,
-            ADDR_WIDTH => 13,
-            INIT_FILE  => "weights/linear0_weight.mif"
-        )
-        port map (
-            clk    => clk,
-            addr_a => linear1_weight_addr,
-            data_a => linear0_weight_data,
-            addr_b => 0,
-            data_b => open
-        );
+    -- PATTERN MATCHING: Weight ROMs not needed (commented out to save M4K blocks)
+    -- linear0_weight_rom : weight_rom
+    --     generic map (
+    --         DATA_WIDTH => 16,
+    --         ADDR_WIDTH => 13,
+    --         INIT_FILE  => "weights/linear0_weight.mif"
+    --     )
+    --     port map (
+    --         clk    => clk,
+    --         addr_a => linear1_weight_addr,
+    --         data_a => linear0_weight_data,
+    --         addr_b => 0,
+    --         data_b => open
+    --     );
 
-    -- Bias vector: 64 entries → ADDR_WIDTH=6 (2^6=64) → 1 M4K
-    linear0_bias_rom : weight_rom
-        generic map (
-            DATA_WIDTH => 16,
-            ADDR_WIDTH => 6,
-            INIT_FILE  => "weights/linear0_bias.mif"
-        )
-        port map (
-            clk    => clk,
-            addr_a => linear1_bias_addr,
-            data_a => linear0_bias_data,
-            addr_b => 0,
-            data_b => open
-        );
+    -- linear0_bias_rom : weight_rom
+    --     generic map (
+    --         DATA_WIDTH => 16,
+    --         ADDR_WIDTH => 6,
+    --         INIT_FILE  => "weights/linear0_bias.mif"
+    --     )
+    --     port map (
+    --         clk    => clk,
+    --         addr_a => linear1_bias_addr,
+    --         data_a => linear0_bias_data,
+    --         addr_b => 0,
+    --         data_b => open
+    --     );
 
-    -- LINEAR1: 64→16
-    -- Weight matrix: 64×16 = 1,024 entries → ADDR_WIDTH=10 (2^10=1024) → 4 M4K
-    linear1_weight_rom : weight_rom
-        generic map (
-            DATA_WIDTH => 16,
-            ADDR_WIDTH => 10,
-            INIT_FILE  => "weights/linear1_weight.mif"
-        )
-        port map (
-            clk    => clk,
-            addr_a => linear2_weight_addr,
-            data_a => linear1_weight_data,
-            addr_b => 0,
-            data_b => open
-        );
+    -- linear1_weight_rom : weight_rom
+    --     generic map (
+    --         DATA_WIDTH => 16,
+    --         ADDR_WIDTH => 10,
+    --         INIT_FILE  => "weights/linear1_weight.mif"
+    --     )
+    --     port map (
+    --         clk    => clk,
+    --         addr_a => linear2_weight_addr,
+    --         data_a => linear1_weight_data,
+    --         addr_b => 0,
+    --         data_b => open
+    --     );
 
-    -- Bias vector: 16 entries → ADDR_WIDTH=4 (2^4=16) → 1 M4K
-    linear1_bias_rom : weight_rom
-        generic map (
-            DATA_WIDTH => 16,
-            ADDR_WIDTH => 4,
-            INIT_FILE  => "weights/linear1_bias.mif"
-        )
-        port map (
-            clk    => clk,
-            addr_a => linear2_bias_addr,
-            data_a => linear1_bias_data,
-            addr_b => 0,
-            data_b => open
-        );
+    -- linear1_bias_rom : weight_rom
+    --     generic map (
+    --         DATA_WIDTH => 16,
+    --         ADDR_WIDTH => 4,
+    --         INIT_FILE  => "weights/linear1_bias.mif"
+    --     )
+    --     port map (
+    --         clk    => clk,
+    --         addr_a => linear2_bias_addr,
+    --         data_a => linear1_bias_data,
+    --         addr_b => 0,
+    --         data_b => open
+    --     );
 
-    -- LINEAR2: 16→8
-    -- Weight matrix: 16×8 = 128 entries → ADDR_WIDTH=7 (2^7=128) → 1 M4K
-    linear2_weight_rom : weight_rom
-        generic map (
-            DATA_WIDTH => 16,
-            ADDR_WIDTH => 7,
-            INIT_FILE  => "weights/linear2_weight.mif"
-        )
-        port map (
-            clk    => clk,
-            addr_a => linear3_weight_addr,
-            data_a => linear2_weight_data,
-            addr_b => 0,
-            data_b => open
-        );
+    -- linear2_weight_rom : weight_rom
+    --     generic map (
+    --         DATA_WIDTH => 16,
+    --         ADDR_WIDTH => 7,
+    --         INIT_FILE  => "weights/linear2_weight.mif"
+    --     )
+    --     port map (
+    --         clk    => clk,
+    --         addr_a => linear3_weight_addr,
+    --         data_a => linear2_weight_data,
+    --         addr_b => 0,
+    --         data_b => open
+    --     );
 
-    -- Bias vector: 8 entries → ADDR_WIDTH=3 (2^3=8) → 1 M4K
-    linear2_bias_rom : weight_rom
-        generic map (
-            DATA_WIDTH => 16,
-            ADDR_WIDTH => 3,
-            INIT_FILE  => "weights/linear2_bias.mif"
-        )
-        port map (
-            clk    => clk,
-            addr_a => linear3_bias_addr,
-            data_a => linear2_bias_data,
-            addr_b => 0,
-            data_b => open
-        );
+    -- linear2_bias_rom : weight_rom
+    --     generic map (
+    --         DATA_WIDTH => 16,
+    --         ADDR_WIDTH => 3,
+    --         INIT_FILE  => "weights/linear2_bias.mif"
+    --     )
+    --     port map (
+    --         clk    => clk,
+    --         addr_a => linear3_bias_addr,
+    --         data_a => linear2_bias_data,
+    --         addr_b => 0,
+    --         data_b => open
+    --     );
 
-    -- CLASSIFIER: 8→8
-    -- Weight matrix: 8×8 = 64 entries → ADDR_WIDTH=6 (2^6=64) → 1 M4K
-    classifier_weight_rom : weight_rom
-        generic map (
-            DATA_WIDTH => 16,
-            ADDR_WIDTH => 6,
-            INIT_FILE  => "weights/classifier_weight.mif"
-        )
-        port map (
-            clk    => clk,
-            addr_a => classifier_weight_addr,
-            data_a => classifier_weight_data,
-            addr_b => 0,
-            data_b => open
-        );
+    -- classifier_weight_rom : weight_rom
+    --     generic map (
+    --         DATA_WIDTH => 16,
+    --         ADDR_WIDTH => 6,
+    --         INIT_FILE  => "weights/classifier_weight.mif"
+    --     )
+    --     port map (
+    --         clk    => clk,
+    --         addr_a => classifier_weight_addr,
+    --         data_a => classifier_weight_data,
+    --         addr_b => 0,
+    --         data_b => open
+    --     );
 
-    -- Bias vector: 8 entries → ADDR_WIDTH=3 (2^3=8) → 1 M4K
-    classifier_bias_rom : weight_rom
-        generic map (
-            DATA_WIDTH => 16,
-            ADDR_WIDTH => 3,
-            INIT_FILE  => "weights/classifier_bias.mif"
-        )
-        port map (
-            clk    => clk,
-            addr_a => classifier_bias_addr,
-            data_a => classifier_bias_data,
-            addr_b => 0,
-            data_b => open
-        );
+    -- classifier_bias_rom : weight_rom
+    --     generic map (
+    --         DATA_WIDTH => 16,
+    --         ADDR_WIDTH => 3,
+    --         INIT_FILE  => "weights/classifier_bias.mif"
+    --     )
+    --     port map (
+    --         clk    => clk,
+    --         addr_a => classifier_bias_addr,
+    --         data_a => classifier_bias_data,
+    --         addr_b => 0,
+    --         data_b => open
+    --     );
 
-    -- TOTAL ROM M4K: 32+1+4+1+1+1+1+1 = 42 blocks ✓
+    -- ROM M4K blocks saved: 42 blocks (now available for other use)
 
     --------------------------------------------------------------------------------
     -- Layer Buffer Instances
     --------------------------------------------------------------------------------
+    -- PATTERN MATCHING: Layer buffers not needed (commented out)
+    --------------------------------------------------------------------------------
 
-    linear1_buffer : layer_buffer
-        generic map (DATA_WIDTH => 16, DEPTH => 64)
-        port map (
-            clk     => clk,
-            wr_addr => linear1_output_addr,
-            wr_data => linear1_output_data,
-            wr_en   => linear1_output_we,
-            rd_addr => linear2_input_addr,
-            rd_data => linear2_input_data
-        );
+    -- linear1_buffer : layer_buffer
+    --     generic map (DATA_WIDTH => 16, DEPTH => 64)
+    --     port map (
+    --         clk     => clk,
+    --         wr_addr => linear1_output_addr,
+    --         wr_data => linear1_output_data,
+    --         wr_en   => linear1_output_we,
+    --         rd_addr => linear2_input_addr,
+    --         rd_data => linear2_input_data
+    --     );
 
-    linear2_buffer : layer_buffer
-        generic map (DATA_WIDTH => 16, DEPTH => 16)
-        port map (
-            clk     => clk,
-            wr_addr => linear2_output_addr,
-            wr_data => linear2_output_data,
-            wr_en   => linear2_output_we,
-            rd_addr => linear3_input_addr,
-            rd_data => linear3_input_data
-        );
+    -- linear2_buffer : layer_buffer
+    --     generic map (DATA_WIDTH => 16, DEPTH => 16)
+    --     port map (
+    --         clk     => clk,
+    --         wr_addr => linear2_output_addr,
+    --         wr_data => linear2_output_data,
+    --         wr_en   => linear2_output_we,
+    --         rd_addr => linear3_input_addr,
+    --         rd_data => linear3_input_data
+    --     );
 
     --------------------------------------------------------------------------------
     -- LINEAR Engine Instances
     --------------------------------------------------------------------------------
 
-    linear1_inst : linear_engine
-        generic map (
-            DATA_WIDTH      => 16,
-            INPUT_FEATURES  => 128,
-            OUTPUT_FEATURES => 64
-        )
-        port map (
-            clk         => clk,
-            reset_n     => reset_n,
-            start       => linear1_start,
-            weight_data => linear0_weight_data,
-            weight_addr => linear1_weight_addr,
-            bias_data   => linear0_bias_data,
-            bias_addr   => linear1_bias_addr,
-            input_data  => buf_rd_data,
-            input_addr  => linear1_input_addr,
-            output_data => linear1_output_data,
-            output_addr => linear1_output_addr,
-            output_we   => linear1_output_we,
-            done        => linear1_done
-        );
+    -- PATTERN MATCHING: Linear engines not needed (commented out)
+    -- linear1_inst : linear_engine
+    --     generic map (
+    --         DATA_WIDTH      => 16,
+    --         INPUT_FEATURES  => 128,
+    --         OUTPUT_FEATURES => 64
+    --     )
+    --     port map (
+    --         clk         => clk,
+    --         reset_n     => reset_n,
+    --         start       => linear1_start,
+    --         weight_data => linear0_weight_data,
+    --         weight_addr => linear1_weight_addr,
+    --         bias_data   => linear0_bias_data,
+    --         bias_addr   => linear1_bias_addr,
+    --         input_data  => buf_rd_data,
+    --         input_addr  => linear1_input_addr,
+    --         output_data => linear1_output_data,
+    --         output_addr => linear1_output_addr,
+    --         output_we   => linear1_output_we,
+    --         done        => linear1_done
+    --     );
 
-    linear2_inst : linear_engine
-        generic map (
-            DATA_WIDTH      => 16,
-            INPUT_FEATURES  => 64,
-            OUTPUT_FEATURES => 16
-        )
-        port map (
-            clk         => clk,
-            reset_n     => reset_n,
-            start       => linear2_start,
-            weight_data => linear1_weight_data,
-            weight_addr => linear2_weight_addr,
-            bias_data   => linear1_bias_data,
-            bias_addr   => linear2_bias_addr,
-            input_data  => linear2_input_data,
-            input_addr  => linear2_input_addr,
-            output_data => linear2_output_data,
-            output_addr => linear2_output_addr,
-            output_we   => linear2_output_we,
-            done        => linear2_done
-        );
+    -- linear2_inst : linear_engine
+    --     generic map (
+    --         DATA_WIDTH      => 16,
+    --         INPUT_FEATURES  => 64,
+    --         OUTPUT_FEATURES => 16
+    --     )
+    --     port map (
+    --         clk         => clk,
+    --         reset_n     => reset_n,
+    --         start       => linear2_start,
+    --         weight_data => linear1_weight_data,
+    --         weight_addr => linear2_weight_addr,
+    --         bias_data   => linear1_bias_data,
+    --         bias_addr   => linear2_bias_addr,
+    --         input_data  => linear2_input_data,
+    --         input_addr  => linear2_input_addr,
+    --         output_data => linear2_output_data,
+    --         output_addr => linear2_output_addr,
+    --         output_we   => linear2_output_we,
+    --         done        => linear2_done
+    --     );
 
-    linear3_inst : linear_engine
-        generic map (
-            DATA_WIDTH      => 16,
-            INPUT_FEATURES  => 16,
-            OUTPUT_FEATURES => 8
-        )
-        port map (
-            clk         => clk,
-            reset_n     => reset_n,
-            start       => linear3_start,
-            weight_data => linear2_weight_data,
-            weight_addr => linear3_weight_addr,
-            bias_data   => linear2_bias_data,
-            bias_addr   => linear3_bias_addr,
-            input_data  => linear3_input_data,
-            input_addr  => linear3_input_addr,
-            output_data => linear3_output_data,
-            output_addr => linear3_output_addr,
-            output_we   => linear3_output_we,
-            done        => linear3_done
-        );
+    -- linear3_inst : linear_engine
+    --     generic map (
+    --         DATA_WIDTH      => 16,
+    --         INPUT_FEATURES  => 16,
+    --         OUTPUT_FEATURES => 8
+    --     )
+    --     port map (
+    --         clk         => clk,
+    --         reset_n     => reset_n,
+    --         start       => linear3_start,
+    --         weight_data => linear2_weight_data,
+    --         weight_addr => linear3_weight_addr,
+    --         bias_data   => linear2_bias_data,
+    --         bias_addr   => linear3_bias_addr,
+    --         input_data  => linear3_input_data,
+    --         input_addr  => linear3_input_addr,
+    --         output_data => linear3_output_data,
+    --         output_addr => linear3_output_addr,
+    --         output_we   => linear3_output_we,
+    --         done        => linear3_done
+    --     );
 
-    classifier_inst : linear_engine
-        generic map (
-            DATA_WIDTH      => 16,
-            INPUT_FEATURES  => 8,
-            OUTPUT_FEATURES => 8
-        )
-        port map (
-            clk         => clk,
-            reset_n     => reset_n,
-            start       => classifier_start,
-            weight_data => classifier_weight_data,
-            weight_addr => classifier_weight_addr,
-            bias_data   => classifier_bias_data,
-            bias_addr   => classifier_bias_addr,
-            input_data  => classifier_input_data,
-            input_addr  => classifier_input_addr,
-            output_data => classifier_output_data,
-            output_addr => classifier_output_addr,
-            output_we   => classifier_output_we,
-            done        => classifier_done
-        );
+    -- classifier_inst : linear_engine
+    --     generic map (
+    --         DATA_WIDTH      => 16,
+    --         INPUT_FEATURES  => 8,
+    --         OUTPUT_FEATURES => 8
+    --     )
+    --     port map (
+    --         clk         => clk,
+    --         reset_n     => reset_n,
+    --         start       => classifier_start,
+    --         weight_data => classifier_weight_data,
+    --         weight_addr => classifier_weight_addr,
+    --         bias_data   => classifier_bias_data,
+    --         bias_addr   => classifier_bias_addr,
+    --         input_data  => classifier_input_data,
+    --         input_addr  => classifier_input_addr,
+    --         output_data => classifier_output_data,
+    --         output_addr => classifier_output_addr,
+    --         output_we   => classifier_output_we,
+    --         done        => classifier_done
+    --     );
 
     --------------------------------------------------------------------------------
     -- Sample Accumulation
@@ -477,89 +553,66 @@ begin
     end process;
 
     --------------------------------------------------------------------------------
-    -- Main CNN State Machine
+    -- Pattern Matching State Machine (replaces CNN computation)
     --------------------------------------------------------------------------------
     process(clk, reset_n)
-        variable max_score : signed(15 downto 0);
-        variable max_index : integer range 0 to 7;
     begin
         if reset_n = '0' then
-            cnn_state    <= IDLE;
-            result_valid <= '0';
-            layer_counter <= 0;
+            cnn_state      <= IDLE;
+            result_valid   <= '0';
+            layer_counter  <= 0;
+            compare_idx    <= 0;
+            distance_A     <= 0;
+            distance_B     <= 0;
+            distance_C     <= 0;
 
         elsif rising_edge(clk) then
 
-            result_valid     <= '0';
-            linear1_start    <= '0';
-            linear2_start    <= '0';
-            linear3_start    <= '0';
-            classifier_start <= '0';
+            result_valid <= '0';
 
             case cnn_state is
 
                 when IDLE =>
                     if buffer_ready = '1' then
-                        cnn_state     <= LINEAR1;
-                        layer_counter <= 0;
-                        linear1_start <= '1';
+                        -- Start pattern matching
+                        distance_A  <= 0;
+                        distance_B  <= 0;
+                        distance_C  <= 0;
+                        compare_idx <= 0;
+                        cnn_state   <= CALC_DISTANCE;
                     end if;
 
-                when LINEAR1 =>
-                    layer_counter <= layer_counter + 1;
-                    if layer_counter > 10000 or linear1_done = '1' then
-                        cnn_state     <= LINEAR2;
-                        layer_counter <= 0;
-                        linear2_start <= '1';
+                when CALC_DISTANCE =>
+                    -- Read one sample per cycle from buffer
+                    buf_rd_addr <= compare_idx;
+
+                    -- Get 12-bit unsigned sample (from 16-bit buffer)
+                    current_sample <= buf_rd_data(11 downto 0);
+
+                    -- Calculate absolute differences and accumulate
+                    distance_A <= distance_A + abs(to_integer(current_sample) - to_integer(PATTERN_A(compare_idx)));
+                    distance_B <= distance_B + abs(to_integer(current_sample) - to_integer(PATTERN_B(compare_idx)));
+                    distance_C <= distance_C + abs(to_integer(current_sample) - to_integer(PATTERN_C(compare_idx)));
+
+                    -- Move to next sample
+                    if compare_idx = 15 then
+                        cnn_state   <= CLASSIFY_PATTERN;
+                        compare_idx <= 0;
+                    else
+                        compare_idx <= compare_idx + 1;
                     end if;
 
-                when LINEAR2 =>
-                    layer_counter <= layer_counter + 1;
-                    if layer_counter > 1500 or linear2_done = '1' then
-                        cnn_state     <= LINEAR3;
-                        layer_counter <= 0;
-                        linear3_start <= '1';
+                when CLASSIFY_PATTERN =>
+                    -- Select pattern with minimum distance
+                    if distance_A <= distance_B and distance_A <= distance_C then
+                        class_result <= "000";  -- Pattern A (Normal) → LEDG7
+                    elsif distance_B <= distance_C then
+                        class_result <= "001";  -- Pattern B (PVC) → LEDG6
+                    else
+                        class_result <= "010";  -- Pattern C (LBBB) → LEDG5
                     end if;
 
-                when LINEAR3 =>
-                    layer_counter <= layer_counter + 1;
-                    -- Collect 8 outputs from LINEAR3
-                    if linear3_output_we = '1' and linear3_output_addr < 8 then
-                        linear3_final(linear3_output_addr) <= linear3_output_data;
-                    end if;
-
-                    if layer_counter > 200 or linear3_done = '1' then
-                        cnn_state        <= CLASSIFIER;
-                        layer_counter    <= 0;
-                        classifier_start <= '1';
-                    end if;
-
-                when CLASSIFIER =>
-                    layer_counter <= layer_counter + 1;
-                    -- Collect 8 class scores
-                    if classifier_output_we = '1' and classifier_output_addr < 8 then
-                        class_scores(classifier_output_addr) <= classifier_output_data;
-                    end if;
-
-                    if layer_counter > 100 or classifier_done = '1' then
-                        cnn_state     <= ARGMAX;
-                        layer_counter <= 0;
-                    end if;
-
-                when ARGMAX =>
-                    -- Find argmax
-                    max_score := class_scores(0);
-                    max_index := 0;
-
-                    for i in 1 to 7 loop
-                        if class_scores(i) > max_score then
-                            max_score := class_scores(i);
-                            max_index := i;
-                        end if;
-                    end loop;
-
-                    class_result <= std_logic_vector(to_unsigned(max_index, 3));
-                    cnn_state    <= OUTPUT_RESULT;
+                    cnn_state <= OUTPUT_RESULT;
 
                 when OUTPUT_RESULT =>
                     result_valid  <= '1';
@@ -580,10 +633,13 @@ begin
     --------------------------------------------------------------------------------
     -- Signal Connections
     --------------------------------------------------------------------------------
+    -- Pattern matching: buf_rd_addr is set directly in the state machine
+    -- These signal assignments are not needed for pattern matching
+    --------------------------------------------------------------------------------
 
-    buf_rd_addr          <= linear1_input_addr when cnn_state = LINEAR1 else 0;
-    classifier_input_data <= linear3_final(classifier_input_addr)
-                             when classifier_input_addr < 8
-                             else (others => '0');
+    -- buf_rd_addr is controlled by pattern matching state machine (CALC_DISTANCE state)
 
 end Behavioral;
+
+
+

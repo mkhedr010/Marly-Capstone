@@ -64,7 +64,7 @@ class MITBIHReader:
             }
             self.signal_info.append(signal_info)
         
-        print(f"✓ Header parsed: {self.num_signals} signals, {self.sample_rate} Hz, {self.num_samples} samples")
+        print(f"[OK] Header parsed: {self.num_signals} signals, {self.sample_rate} Hz, {self.num_samples} samples")
     
     def read_signal(self, signal_num=0):
         """
@@ -109,7 +109,7 @@ class MITBIHReader:
         # Physical value = (ADC - ADC_zero - baseline) / gain
         physical = (samples - adc_zero - baseline) / gain
         
-        print(f"✓ Read signal {signal_num}: {len(physical)} samples")
+        print(f"[OK] Read signal {signal_num}: {len(physical)} samples")
         print(f"  Range: {physical.min():.2f} to {physical.max():.2f} mV")
         
         return physical

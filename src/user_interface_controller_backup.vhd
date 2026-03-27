@@ -155,29 +155,30 @@ begin
                 led_int(3) <= '0';
             end if;
 
-            -- GREEN LEDs: Pattern-based classification display
-            -- LEDG7 = Pattern A (Normal), LEDG6 = Pattern B (PVC), LEDG5 = Pattern C (LBBB)
+            -- GREEN LEDs: Classification Results
+            -- LEDG7=Normal, LEDG6=LBBB, LEDG5=PVC
+            -- Display for 2 seconds after each classification
             if cnn_valid = '1' then
                 ledg_int <= (others => '0');  -- Clear all
 
-                -- Map cnn_result to specific LEDs
+                -- Map cnn_result to green LEDs
                 case cnn_result is
-                    when "00" =>  -- Pattern A (Normal)
-                        ledg_int(7) <= '1';  -- LEDG7
-                    when "01" =>  -- Pattern B (PVC)
-                        ledg_int(6) <= '1';  -- LEDG6
-                    when "10" =>  -- Pattern C (LBBB)
-                        ledg_int(5) <= '1';  -- LEDG5
+                    when "00" =>  -- Normal
+                        ledg_int(7) <= '1';
+                    when "01" =>  -- PVC or other abnormal
+                        ledg_int(5) <= '1';
+                    when "10" =>  -- LBBB or AFib
+                        ledg_int(6) <= '1';
                     when others =>
-                        null;  -- No LED for other patterns
+                        null;
                 end case;
 
                 ledg_counter <= CLK_FREQ * 2;  -- Display for 2 seconds
             elsif ledg_counter > 0 then
                 ledg_counter <= ledg_counter - 1;
-                -- Keep LED ON
+                -- Keep LEDs ON
             else
-                ledg_int <= (others => '0');  -- Turn off
+                ledg_int <= (others => '0');
             end if;
 
         end if;
