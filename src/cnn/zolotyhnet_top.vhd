@@ -149,9 +149,9 @@ architecture Behavioral of zolotyhnet_top is
     );
 
     -- Pattern B: PVC (ECG signals/PVC/208)
-    -- Values > 2047 become negative, then divided by 16
+    -- Values > 2047 become negative, then arithmetic shift right by 4
     constant PATTERN_B : pattern_array := (
-        to_signed(-6, 16),   -- (3989-4096)/16 = -107/16 = -6.7
+        to_signed(-6, 16),   -- 3989: -107 >> 4 = -6
         to_signed(-6, 16),
         to_signed(-6, 16),
         to_signed(-6, 16),
@@ -159,19 +159,19 @@ architecture Behavioral of zolotyhnet_top is
         to_signed(-6, 16),
         to_signed(-6, 16),
         to_signed(-6, 16),
-        to_signed(-7, 16),   -- (3977-4096)/16 = -119/16 = -7.4
-        to_signed(-8, 16),   -- (3966-4096)/16 = -130/16 = -8.1
-        to_signed(-8, 16),   -- (3963-4096)/16 = -133/16 = -8.3
-        to_signed(-9, 16),   -- (3949-4096)/16 = -147/16 = -9.2
-        to_signed(-9, 16),   -- (3937-4096)/16 = -159/16 = -9.9
-        to_signed(-10, 16),  -- (3932-4096)/16 = -164/16 = -10.25
-        to_signed(-10, 16),  -- (3934-4096)/16 = -162/16 = -10.1
+        to_signed(-7, 16),   -- 3977: -119 >> 4 = -7
+        to_signed(-8, 16),   -- 3966: -130 >> 4 = -8
+        to_signed(-8, 16),   -- 3963: -133 >> 4 = -8
+        to_signed(-9, 16),   -- 3949: -147 >> 4 = -9
+        to_signed(-9, 16),   -- 3937: -159 >> 4 = -9
+        to_signed(-10, 16),  -- 3932: -164 >> 4 = -10
+        to_signed(-10, 16),  -- 3934: -162 >> 4 = -10
         to_signed(-10, 16)
     );
 
     -- Pattern C: LBBB (ECG signals/LBBB/214)
     constant PATTERN_C : pattern_array := (
-        to_signed(-6, 16),   -- (4000-4096)/16 = -96/16 = -6.0
+        to_signed(-6, 16),   -- 4000: -96 >> 4 = -6
         to_signed(-6, 16),
         to_signed(-6, 16),
         to_signed(-6, 16),
@@ -179,14 +179,14 @@ architecture Behavioral of zolotyhnet_top is
         to_signed(-6, 16),
         to_signed(-6, 16),
         to_signed(-6, 16),
-        to_signed(-6, 16),   -- (3989-4096)/16 = -107/16 = -6.7
-        to_signed(-8, 16),   -- (3967-4096)/16 = -129/16 = -8.1
-        to_signed(-8, 16),
-        to_signed(-7, 16),   -- (3971-4096)/16 = -125/16 = -7.8
-        to_signed(-6, 16),   -- (3985-4096)/16 = -111/16 = -6.9
-        to_signed(-6, 16),   -- (3989-4096)/16 = -107/16 = -6.7
-        to_signed(-7, 16),
-        to_signed(-8, 16)    -- (3960-4096)/16 = -136/16 = -8.5
+        to_signed(-6, 16),   -- 3989: -107 >> 4 = -6
+        to_signed(-8, 16),   -- 3967: -129 >> 4 = -8
+        to_signed(-8, 16),   -- 3967: -129 >> 4 = -8
+        to_signed(-7, 16),   -- 3971: -125 >> 4 = -7
+        to_signed(-6, 16),   -- 3985: -111 >> 4 = -6
+        to_signed(-6, 16),   -- 3989: -107 >> 4 = -6
+        to_signed(-7, 16),   -- 3971: -125 >> 4 = -7
+        to_signed(-8, 16)    -- 3960: -136 >> 4 = -8
     );
 
     --------------------------------------------------------------------------------
