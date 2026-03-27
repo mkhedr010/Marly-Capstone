@@ -108,6 +108,7 @@ architecture Behavioral of zolotyhnet_top is
     -- PATTERN MATCHING: Simplified states (bypass CNN computation)
     type cnn_state_type is (
         IDLE,
+        READ_SAMPLES,     -- Read samples from buffer into registers
         CALC_DISTANCE,    -- Calculate distance to each reference pattern
         CLASSIFY_PATTERN, -- Select closest pattern
         OUTPUT_RESULT
@@ -124,66 +125,68 @@ architecture Behavioral of zolotyhnet_top is
     -- Pattern Matching: Reference Patterns (extracted from real ECG signals)
     --------------------------------------------------------------------------------
 
-    type pattern_array is array (0 to 15) of signed(11 downto 0);
+    type pattern_array is array (0 to 15) of signed(15 downto 0);
 
     -- Pattern A: Normal ECG (ECG signals/Normal/100)
+    -- Values divided by 16 to match buffer_128 Q8.8 scaling
     constant PATTERN_A : pattern_array := (
-        to_signed(488, 12),
-        to_signed(488, 12),
-        to_signed(488, 12),
-        to_signed(488, 12),
-        to_signed(488, 12),
-        to_signed(488, 12),
-        to_signed(488, 12),
-        to_signed(488, 12),
-        to_signed(512, 12),
-        to_signed(498, 12),
-        to_signed(488, 12),
-        to_signed(483, 12),
-        to_signed(473, 12),
-        to_signed(478, 12),
-        to_signed(473, 12),
-        to_signed(458, 12)
+        to_signed(30, 16),   -- 488/16 = 30.5
+        to_signed(30, 16),
+        to_signed(30, 16),
+        to_signed(30, 16),
+        to_signed(30, 16),
+        to_signed(30, 16),
+        to_signed(30, 16),
+        to_signed(30, 16),
+        to_signed(32, 16),   -- 512/16 = 32
+        to_signed(31, 16),   -- 498/16 = 31.1
+        to_signed(30, 16),
+        to_signed(30, 16),   -- 483/16 = 30.2
+        to_signed(29, 16),   -- 473/16 = 29.6
+        to_signed(29, 16),   -- 478/16 = 29.9
+        to_signed(29, 16),
+        to_signed(28, 16)    -- 458/16 = 28.6
     );
 
     -- Pattern B: PVC (ECG signals/PVC/208)
+    -- Values > 2047 become negative, then divided by 16
     constant PATTERN_B : pattern_array := (
-        to_signed(3989, 12),
-        to_signed(3989, 12),
-        to_signed(3989, 12),
-        to_signed(3989, 12),
-        to_signed(3989, 12),
-        to_signed(3989, 12),
-        to_signed(3989, 12),
-        to_signed(3989, 12),
-        to_signed(3977, 12),
-        to_signed(3966, 12),
-        to_signed(3963, 12),
-        to_signed(3949, 12),
-        to_signed(3937, 12),
-        to_signed(3932, 12),
-        to_signed(3934, 12),
-        to_signed(3934, 12)
+        to_signed(-6, 16),   -- (3989-4096)/16 = -107/16 = -6.7
+        to_signed(-6, 16),
+        to_signed(-6, 16),
+        to_signed(-6, 16),
+        to_signed(-6, 16),
+        to_signed(-6, 16),
+        to_signed(-6, 16),
+        to_signed(-6, 16),
+        to_signed(-7, 16),   -- (3977-4096)/16 = -119/16 = -7.4
+        to_signed(-8, 16),   -- (3966-4096)/16 = -130/16 = -8.1
+        to_signed(-8, 16),   -- (3963-4096)/16 = -133/16 = -8.3
+        to_signed(-9, 16),   -- (3949-4096)/16 = -147/16 = -9.2
+        to_signed(-9, 16),   -- (3937-4096)/16 = -159/16 = -9.9
+        to_signed(-10, 16),  -- (3932-4096)/16 = -164/16 = -10.25
+        to_signed(-10, 16),  -- (3934-4096)/16 = -162/16 = -10.1
+        to_signed(-10, 16)
     );
 
     -- Pattern C: LBBB (ECG signals/LBBB/214)
     constant PATTERN_C : pattern_array := (
-        to_signed(4000, 12),
-        to_signed(4000, 12),
-        to_signed(4000, 12),
-        to_signed(4000, 12),
-        to_signed(4000, 12),
-        to_signed(4000, 12),
-        to_signed(4000, 12),
-        to_signed(4000, 12),
-        to_signed(3989, 12),
-        to_signed(3967, 12),
-        to_signed(3967, 12),
-        to_signed(3971, 12),
-        to_signed(3985, 12),
-        to_signed(3989, 12),
-        to_signed(3971, 12),
-        to_signed(3960, 12)
+        to_signed(-6, 16),   -- (4000-4096)/16 = -96/16 = -6.0
+        to_signed(-6, 16),
+        to_signed(-6, 16),
+        to_signed(-6, 16),
+        to_signed(-6, 16),
+        to_signed(-6, 16),
+        to_signed(-6, 16),
+        to_signed(-6, 16),
+        to_signed(-6, 16),   -- (3989-4096)/16 = -107/16 = -6.7
+        to_signed(-8, 16),   -- (3967-4096)/16 = -129/16 = -8.1
+        to_signed(-8, 16),
+        to_signed(-7, 16),   -- (3971-4096)/16 = -125/16 = -7.8
+        to_signed(-6, 16),   -- (3985-4096)/16 = -111/16 = -6.9
+        to_signed(-6, 16),   -- (3989-4096)/16 = -107/16 = -6.7
+        to_signed(-7, 16),
+        to_signed(-8, 16)    -- (3960-4096)/16 = -136/16 = -8.5
     );
 
     --------------------------------------------------------------------------------
@@ -193,11 +196,15 @@ architecture Behavioral of zolotyhnet_top is
     signal cnn_state : cnn_state_type := IDLE;
 
     -- Pattern matching signals
-    signal compare_idx    : integer range 0 to 15 := 0;
+    signal compare_idx    : integer range 0 to 17 := 0;
     signal distance_A     : integer range 0 to 65535 := 0;
     signal distance_B     : integer range 0 to 65535 := 0;
     signal distance_C     : integer range 0 to 65535 := 0;
     signal current_sample : signed(11 downto 0) := (others => '0');
+
+    -- Register array to store samples (solves sync timing issue)
+    type sample_array is array (0 to 15) of signed(15 downto 0);
+    signal stored_samples : sample_array := (others => (others => '0'));
 
     -- Input buffering
     signal sample_count : integer range 0 to 511 := 0;
@@ -579,22 +586,34 @@ begin
                         distance_B  <= 0;
                         distance_C  <= 0;
                         compare_idx <= 0;
+                        buf_rd_addr <= 0;  -- Pre-load first address
+                        cnn_state   <= READ_SAMPLES;
+                    end if;
+
+                when READ_SAMPLES =>
+                    -- Previous cycle's buf_rd_addr is now available on buf_rd_data
+                    if compare_idx > 0 then
+                        -- Store the FULL 16-bit sample (includes /16 scaling from buffer)
+                        stored_samples(compare_idx - 1) <= buf_rd_data;
+                    end if;
+
+                    -- Set address for next sample
+                    if compare_idx < 16 then
+                        buf_rd_addr <= compare_idx;
+                        compare_idx <= compare_idx + 1;
+                    else
+                        -- Store last sample and move to comparison
+                        stored_samples(15) <= buf_rd_data;
+                        compare_idx <= 0;
                         cnn_state   <= CALC_DISTANCE;
                     end if;
 
                 when CALC_DISTANCE =>
-                    -- Read one sample per cycle from buffer
-                    buf_rd_addr <= compare_idx;
+                    -- Now we're reading from stored_samples (registers) - no timing issues!
+                    distance_A <= distance_A + abs(to_integer(stored_samples(compare_idx)) - to_integer(PATTERN_A(compare_idx)));
+                    distance_B <= distance_B + abs(to_integer(stored_samples(compare_idx)) - to_integer(PATTERN_B(compare_idx)));
+                    distance_C <= distance_C + abs(to_integer(stored_samples(compare_idx)) - to_integer(PATTERN_C(compare_idx)));
 
-                    -- Get 12-bit unsigned sample (from 16-bit buffer)
-                    current_sample <= buf_rd_data(11 downto 0);
-
-                    -- Calculate absolute differences and accumulate
-                    distance_A <= distance_A + abs(to_integer(current_sample) - to_integer(PATTERN_A(compare_idx)));
-                    distance_B <= distance_B + abs(to_integer(current_sample) - to_integer(PATTERN_B(compare_idx)));
-                    distance_C <= distance_C + abs(to_integer(current_sample) - to_integer(PATTERN_C(compare_idx)));
-
-                    -- Move to next sample
                     if compare_idx = 15 then
                         cnn_state   <= CLASSIFY_PATTERN;
                         compare_idx <= 0;
