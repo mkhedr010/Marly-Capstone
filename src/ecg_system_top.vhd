@@ -44,7 +44,15 @@ entity ecg_system_top is
         vga_vsync    : out std_logic;
         vga_r        : out std_logic_vector(9 downto 0);
         vga_g        : out std_logic_vector(9 downto 0);
-        vga_b        : out std_logic_vector(9 downto 0)
+        vga_b        : out std_logic_vector(9 downto 0);
+
+        -- LCD Interface (16x2 Character Display)
+        lcd_rs       : out std_logic;                    -- Register select
+        lcd_rw       : out std_logic;                    -- Read/Write (always 0 for write)
+        lcd_e        : out std_logic;                    -- Enable strobe
+        lcd_data     : out std_logic_vector(3 downto 0); -- 4-bit data bus (DB4-DB7)
+        lcd_on       : out std_logic;                    -- LCD power control (set to '1')
+        lcd_blon     : out std_logic                     -- LCD backlight control (set to '1')
 
         -- NO SDRAM PORTS (CNN weights stored in on-chip ROM)
     );
@@ -139,6 +147,36 @@ architecture Behavioral of ecg_system_top is
         );
     end component;
 
+    component lcd_text_formatter
+        generic (
+            CLK_FREQ      : integer;
+            SAMPLE_PERIOD : integer
+        );
+        port (
+            clk         : in  std_logic;
+            reset_n     : in  std_logic;
+            ledg        : in  std_logic_vector(7 downto 0);
+            lcd_text    : out std_logic_vector(127 downto 0);
+            text_update : out std_logic
+        );
+    end component;
+
+    component lcd_hd44780_controller
+        generic (
+            CLK_FREQ : integer
+        );
+        port (
+            clk          : in  std_logic;
+            reset_n      : in  std_logic;
+            display_text : in  std_logic_vector(127 downto 0);
+            text_update  : in  std_logic;
+            lcd_rs       : out std_logic;
+            lcd_rw       : out std_logic;
+            lcd_e        : out std_logic;
+            lcd_data     : out std_logic_vector(3 downto 0)
+        );
+    end component;
+
     -- NO PLL or SDRAM CONTROLLER (not needed for LINEAR-ONLY CNN)
     
     -- Internal signals
@@ -165,6 +203,11 @@ architecture Behavioral of ecg_system_top is
     signal cnn_valid_int       : std_logic;
     signal cnn_result_int      : std_logic_vector(1 downto 0);
     signal cnn_result_valid_int: std_logic;
+
+    -- LCD interface internal signals
+    signal ledg_int         : std_logic_vector(7 downto 0);
+    signal lcd_text_int     : std_logic_vector(127 downto 0);
+    signal text_update_int  : std_logic;
 
 begin
 
@@ -238,8 +281,11 @@ begin
             cnn_valid     => cnn_result_valid_int,
             system_enable => system_enable_int,
             led           => led,
-            ledg          => ledg
+            ledg          => ledg_int  -- Connect to internal signal
         );
+
+    -- Connect internal LEDG to output port
+    ledg <= ledg_int;
     
     -- CNN Interface: LINEAR-ONLY CNN with on-chip ROM weights
     cnn_if_inst : cnn_interface
@@ -253,5 +299,39 @@ begin
             cnn_result       => cnn_result_int,
             cnn_result_valid => cnn_result_valid_int
         );
-    
+
+    -- LCD Text Formatter: Monitors LEDs and generates display text
+    lcd_formatter_inst : lcd_text_formatter
+        generic map (
+            CLK_FREQ      => CLK_FREQ,
+            SAMPLE_PERIOD => 5  -- 5-second sampling period
+        )
+        port map (
+            clk         => clk_50mhz,
+            reset_n     => reset_n,
+            ledg        => ledg_int,  -- Monitor internal LEDG signal
+            lcd_text    => lcd_text_int,
+            text_update => text_update_int
+        );
+
+    -- LCD Controller: Drives the HD44780 LCD display
+    lcd_ctrl_inst : lcd_hd44780_controller
+        generic map (
+            CLK_FREQ => CLK_FREQ
+        )
+        port map (
+            clk          => clk_50mhz,
+            reset_n      => reset_n,
+            display_text => lcd_text_int,
+            text_update  => text_update_int,
+            lcd_rs       => lcd_rs,
+            lcd_rw       => lcd_rw,
+            lcd_e        => lcd_e,
+            lcd_data     => lcd_data
+        );
+
+    -- LCD power and backlight always ON
+    lcd_on   <= '1';
+    lcd_blon <= '1';
+
 end Behavioral;

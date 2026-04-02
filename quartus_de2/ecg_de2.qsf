@@ -28,6 +28,8 @@ set_global_assignment -name VHDL_FILE ../src/ecg_vga_renderer.vhd
 set_global_assignment -name VHDL_FILE ../src/user_interface_controller.vhd
 set_global_assignment -name VHDL_FILE ../src/cnn_interface.vhd
 set_global_assignment -name VHDL_FILE ../src/led_indicator.vhd
+set_global_assignment -name VHDL_FILE ../src/lcd_hd44780_controller.vhd
+set_global_assignment -name VHDL_FILE ../src/lcd_text_formatter.vhd
 
 # Timing constraints
 set_global_assignment -name SDC_FILE ecg_de2.sdc
