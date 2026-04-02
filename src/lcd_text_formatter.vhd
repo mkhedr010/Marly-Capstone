@@ -46,7 +46,7 @@ architecture Behavioral of lcd_text_formatter is
     constant CHAR_o     : std_logic_vector(7 downto 0) := x"6F";  -- 'o'
     constant CHAR_r     : std_logic_vector(7 downto 0) := x"72";  -- 'r'
     constant CHAR_m     : std_logic_vector(7 downto 0) := x"6D";  -- 'm'
-    constant CHAR_a     : std_logic_vector(7 downto 0) := x"61";  -- 'a'
+    constant C_a     : std_logic_vector(7 downto 0) := x"61";  -- 'a'
     constant CHAR_l     : std_logic_vector(7 downto 0) := x"6C";  -- 'l'
     constant CHAR_A     : std_logic_vector(7 downto 0) := x"41";  -- 'A'
     constant CHAR_b     : std_logic_vector(7 downto 0) := x"62";  -- 'b'
@@ -59,17 +59,17 @@ architecture Behavioral of lcd_text_formatter is
     -- Text strings (16 characters each)
     -- "Normal          " = Normal ECG (LEDG7)
     constant TEXT_NORMAL : std_logic_vector(127 downto 0) :=
-        CHAR_N & CHAR_o & CHAR_r & CHAR_m & CHAR_a & CHAR_l & CHAR_SPACE & CHAR_SPACE &
+        CHAR_N & CHAR_o & CHAR_r & CHAR_m & C_a & CHAR_l & CHAR_SPACE & CHAR_SPACE &
         CHAR_SPACE & CHAR_SPACE & CHAR_SPACE & CHAR_SPACE & CHAR_SPACE & CHAR_SPACE & CHAR_SPACE & CHAR_SPACE;
 
     -- "Abnormal        " = PVC (LEDG6)
     constant TEXT_ABNORMAL : std_logic_vector(127 downto 0) :=
-        CHAR_A & CHAR_b & CHAR_n & CHAR_o & CHAR_r & CHAR_m & CHAR_a & CHAR_l &
+        CHAR_A & CHAR_b & CHAR_n & CHAR_o & CHAR_r & CHAR_m & C_a & CHAR_l &
         CHAR_SPACE & CHAR_SPACE & CHAR_SPACE & CHAR_SPACE & CHAR_SPACE & CHAR_SPACE & CHAR_SPACE & CHAR_SPACE;
 
     -- "Waiting...      " = No LED on or tie
     constant TEXT_WAITING : std_logic_vector(127 downto 0) :=
-        CHAR_W & CHAR_a & CHAR_i & CHAR_t & CHAR_i & CHAR_n & CHAR_g & CHAR_DOT &
+        CHAR_W & C_a & CHAR_i & CHAR_t & CHAR_i & CHAR_n & CHAR_g & CHAR_DOT &
         CHAR_DOT & CHAR_DOT & CHAR_SPACE & CHAR_SPACE & CHAR_SPACE & CHAR_SPACE & CHAR_SPACE & CHAR_SPACE;
 
     -- Timing constants (ULTRA-OPTIMIZED to reduce FPGA resource usage)

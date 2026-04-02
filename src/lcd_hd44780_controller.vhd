@@ -161,14 +161,11 @@ begin
                     end if;
 
                 when INIT_FUNCTION_SET_1 =>
-                    if enable_state = E_IDLE and delay_counter = 0 then
+                    if enable_state = E_IDLE then
                         lcd_rs_int <= '0';
                         lcd_data_int <= CMD_FUNCTION_SET_8(7 downto 4);  -- Send high nibble only
                         enable_state <= E_HIGH;
-                        delay_counter <= 1;  -- Mark that we've sent the command
-                    elsif enable_state = E_IDLE and delay_counter = 1 then
-                        -- Enable pulse completed, move to next state
-                        delay_counter <= 0;
+                    elsif enable_state = E_IDLE and delay_counter = 0 then
                         state <= INIT_DELAY_1;
                     end if;
 
@@ -181,14 +178,11 @@ begin
                     end if;
 
                 when INIT_FUNCTION_SET_2 =>
-                    if enable_state = E_IDLE and delay_counter = 0 then
+                    if enable_state = E_IDLE then
                         lcd_rs_int <= '0';
                         lcd_data_int <= CMD_FUNCTION_SET_8(7 downto 4);
                         enable_state <= E_HIGH;
-                        delay_counter <= 1;  -- Mark that we've sent the command
-                    elsif enable_state = E_IDLE and delay_counter = 1 then
-                        -- Enable pulse completed, move to next state
-                        delay_counter <= 0;
+                    elsif enable_state = E_IDLE and delay_counter = 0 then
                         state <= INIT_DELAY_2;
                     end if;
 
@@ -201,14 +195,11 @@ begin
                     end if;
 
                 when INIT_FUNCTION_SET_3 =>
-                    if enable_state = E_IDLE and delay_counter = 0 then
+                    if enable_state = E_IDLE then
                         lcd_rs_int <= '0';
                         lcd_data_int <= "0010";  -- Switch to 4-bit mode
                         enable_state <= E_HIGH;
-                        delay_counter <= 1;  -- Mark that we've sent the command
-                    elsif enable_state = E_IDLE and delay_counter = 1 then
-                        -- Enable pulse completed, move to next state
-                        delay_counter <= 0;
+                    elsif enable_state = E_IDLE and delay_counter = 0 then
                         state <= INIT_DELAY_3;
                     end if;
 
