@@ -58,12 +58,12 @@ architecture Behavioral of lcd_text_formatter is
 
     -- Text strings (16 characters each)
     -- "Normal          " = Normal ECG (LEDG7)
-    constant TEXT_NORMAL : std_logic_vector(127 downto 0) :=
+    constant TEXT_ABNORMAL : std_logic_vector(127 downto 0) :=
         CHAR_N & CHAR_o & CHAR_r & CHAR_m & C_a & CHAR_l & CHAR_SPACE & CHAR_SPACE &
         CHAR_SPACE & CHAR_SPACE & CHAR_SPACE & CHAR_SPACE & CHAR_SPACE & CHAR_SPACE & CHAR_SPACE & CHAR_SPACE;
 
     -- "Abnormal        " = PVC (LEDG6)
-    constant TEXT_ABNORMAL : std_logic_vector(127 downto 0) :=
+    constant TEXT_NORMAL : std_logic_vector(127 downto 0) :=
         CHAR_A & CHAR_b & CHAR_n & CHAR_o & CHAR_r & CHAR_m & C_a & CHAR_l &
         CHAR_SPACE & CHAR_SPACE & CHAR_SPACE & CHAR_SPACE & CHAR_SPACE & CHAR_SPACE & CHAR_SPACE & CHAR_SPACE;
 

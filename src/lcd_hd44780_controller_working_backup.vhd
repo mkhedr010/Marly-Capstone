@@ -88,7 +88,6 @@ architecture Behavioral of lcd_hd44780_controller is
     signal char_index    : integer range 0 to 15 := 0;
     signal byte_to_send  : std_logic_vector(7 downto 0) := (others => '0');
     signal nibble_select : std_logic := '0';  -- 0=high nibble, 1=low nibble
-    signal cmd_sent      : std_logic := '0';  -- 1-bit flag: single-nibble command was sent
 
     -- LCD control signals
     signal lcd_rs_int   : std_logic := '0';
@@ -121,7 +120,6 @@ begin
             lcd_data_int <= (others => '0');
             enable_state <= E_IDLE;
             enable_counter <= 0;
-            cmd_sent <= '0';
 
         elsif rising_edge(clk) then
 
@@ -163,13 +161,11 @@ begin
                     end if;
 
                 when INIT_FUNCTION_SET_1 =>
-                    if enable_state = E_IDLE and cmd_sent = '0' then
+                    if enable_state = E_IDLE then
                         lcd_rs_int <= '0';
-                        lcd_data_int <= CMD_FUNCTION_SET_8(7 downto 4);
+                        lcd_data_int <= CMD_FUNCTION_SET_8(7 downto 4);  -- Send high nibble only
                         enable_state <= E_HIGH;
-                        cmd_sent <= '1';
-                    elsif enable_state = E_IDLE and cmd_sent = '1' then
-                        cmd_sent <= '0';
+                    elsif enable_state = E_IDLE and delay_counter = 0 then
                         state <= INIT_DELAY_1;
                     end if;
 
@@ -182,13 +178,11 @@ begin
                     end if;
 
                 when INIT_FUNCTION_SET_2 =>
-                    if enable_state = E_IDLE and cmd_sent = '0' then
+                    if enable_state = E_IDLE then
                         lcd_rs_int <= '0';
                         lcd_data_int <= CMD_FUNCTION_SET_8(7 downto 4);
                         enable_state <= E_HIGH;
-                        cmd_sent <= '1';
-                    elsif enable_state = E_IDLE and cmd_sent = '1' then
-                        cmd_sent <= '0';
+                    elsif enable_state = E_IDLE and delay_counter = 0 then
                         state <= INIT_DELAY_2;
                     end if;
 
@@ -201,13 +195,11 @@ begin
                     end if;
 
                 when INIT_FUNCTION_SET_3 =>
-                    if enable_state = E_IDLE and cmd_sent = '0' then
+                    if enable_state = E_IDLE then
                         lcd_rs_int <= '0';
-                        lcd_data_int <= "0010";
+                        lcd_data_int <= "0010";  -- Switch to 4-bit mode
                         enable_state <= E_HIGH;
-                        cmd_sent <= '1';
-                    elsif enable_state = E_IDLE and cmd_sent = '1' then
-                        cmd_sent <= '0';
+                    elsif enable_state = E_IDLE and delay_counter = 0 then
                         state <= INIT_DELAY_3;
                     end if;
 
