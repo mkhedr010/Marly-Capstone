@@ -1,0 +1,6 @@
+QUARTUS_VERSION = "18.1"
+DATE = "2026"
+
+# Revisions
+
+PROJECT_REVISION = "ecg_waveform_demo"
